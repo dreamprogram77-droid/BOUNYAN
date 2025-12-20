@@ -5,9 +5,11 @@ import { AppMode } from '../types';
 interface NavbarProps {
   currentMode: AppMode;
   setMode: (mode: AppMode) => void;
+  isLoggedIn: boolean;
+  onLogout: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentMode, setMode }) => {
+const Navbar: React.FC<NavbarProps> = ({ currentMode, setMode, isLoggedIn, onLogout }) => {
   const publicLinks = [
     { id: AppMode.HOME, label: 'الرئيسية' },
     { id: AppMode.PRICING, label: 'الأسعار' },
@@ -21,31 +23,29 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, setMode }) => {
   ];
 
   return (
-    <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-18 items-center py-3">
+    <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="flex justify-between h-16 items-center">
           <div className="flex items-center gap-8">
-            <button onClick={() => setMode(AppMode.HOME)} className="flex items-center gap-4 group">
-              <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-2.5 rounded-xl shadow-indigo-200 shadow-lg group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            <button 
+              onClick={() => setMode(AppMode.HOME)} 
+              className="flex items-center gap-3 group"
+            >
+              <div className="bg-slate-900 p-1.5 text-white">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <div className="flex flex-col text-right">
-                <span className="text-2xl font-black bg-gradient-to-l from-indigo-600 via-indigo-500 to-emerald-500 bg-clip-text text-transparent tracking-tight">
-                  بُنـــــيان
-                </span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Smart Engineering</span>
-              </div>
+              <span className="text-xl font-bold tracking-tighter text-slate-900 uppercase">Bunyan</span>
             </button>
 
-            <div className="hidden lg:flex items-center gap-1 border-r border-slate-100 pr-8 mr-2">
+            <div className="hidden xl:flex items-center gap-4">
               {publicLinks.map((link) => (
                 <button
                   key={link.id}
                   onClick={() => setMode(link.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                    currentMode === link.id ? 'text-indigo-600' : 'text-slate-500 hover:text-indigo-600'
+                  className={`text-[11px] font-bold transition-all uppercase tracking-widest ${
+                    currentMode === link.id ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-900'
                   }`}
                 >
                   {link.label}
@@ -54,38 +54,38 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, setMode }) => {
             </div>
           </div>
           
-          <div className="hidden lg:flex space-x-reverse space-x-2">
+          <div className="hidden lg:flex items-center gap-4">
             {toolsLinks.map((link) => (
               <button
                 key={link.id}
                 onClick={() => setMode(link.id)}
-                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                className={`flex items-center gap-2 px-3 py-1.5 text-[11px] font-bold transition-all border ${
                   currentMode === link.id
-                    ? 'text-indigo-600 bg-indigo-50 shadow-sm shadow-indigo-100/50'
-                    : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-slate-400 hover:text-slate-900'
                 }`}
               >
-                <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={link.icon} />
-                </svg>
                 {link.label}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setMode(AppMode.LOGIN)}
-              className="text-slate-600 font-bold text-sm px-4 hover:text-indigo-600"
-            >
-              تسجيل الدخول
-            </button>
-            <button 
-              onClick={() => setMode(AppMode.REGISTER)}
-              className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-black hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
-            >
-              إنشاء حساب
-            </button>
+          <div className="flex items-center gap-4">
+            {!isLoggedIn ? (
+              <button 
+                onClick={() => setMode(AppMode.LOGIN)}
+                className="bg-slate-900 text-white px-5 py-2 text-[11px] font-bold hover:bg-indigo-600 transition-all"
+              >
+                دخول / تسجيل
+              </button>
+            ) : (
+              <button 
+                onClick={onLogout}
+                className="text-rose-500 text-[11px] font-bold hover:underline"
+              >
+                تسجيل الخروج
+              </button>
+            )}
           </div>
         </div>
       </div>

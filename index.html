@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
   <head>
@@ -5,49 +6,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>بنيان | منصة الامتثال الهندسي الذكي</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --font-main: 'Amiri', serif;
+      }
       body {
-        font-family: 'Tajawal', sans-serif;
-        background-color: #f8fafc;
-        background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px);
-        background-size: 24px 24px;
+        font-family: var(--font-main);
+        background-color: #fcfdfe;
+        color: #0f172a;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
       }
-      .glass-card {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+      
+      /* نمط الشبكة الهندسية */
+      .blueprint-grid {
+        background-image: 
+          linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+          linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+        background-size: 40px 40px;
       }
+
+      h1, h2, h3 {
+        text-wrap: balance;
+        letter-spacing: -0.01em;
+        line-height: 1.1;
+      }
+
+      p {
+        line-height: 1.6;
+        font-size: 1.1rem; /* تم تكبير الخط قليلاً ليتناسب مع طبيعة خط Amiri */
+      }
+
+      ::selection {
+        background-color: #4f46e5;
+        color: #ffffff;
+      }
+
       @media print {
-        @page {
-          margin: 1.5cm;
-          size: A4;
-        }
-        body {
-          background: white !important;
-          -webkit-print-color-adjust: exact;
-        }
-        nav, header, footer, .print\:hidden {
-          display: none !important;
-        }
-        main {
-          width: 100% !important;
-          padding: 0 !important;
-        }
+        @page { margin: 1cm; size: A4; }
+        body { background: white !important; }
+        nav, .print\:hidden { display: none !important; }
       }
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #f1f5f9;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 10px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
+
+      ::-webkit-scrollbar { width: 5px; }
+      ::-webkit-scrollbar-track { background: #f8fafc; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; }
     </style>
   <script type="importmap">
 {
@@ -61,7 +65,7 @@
 }
 </script>
 </head>
-  <body class="text-slate-900 antialiased">
+  <body class="antialiased blueprint-grid">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
