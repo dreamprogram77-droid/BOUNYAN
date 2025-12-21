@@ -17,14 +17,27 @@
         color: #0f172a;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
+        transition: background-color 0.3s ease, color 0.3s ease;
+        padding-top: 80px; /* Offset for fixed navbar */
       }
       
+      .dark body {
+        background-color: #020617;
+        color: #f1f5f9;
+      }
+
       /* نمط الشبكة الهندسية */
       .blueprint-grid {
         background-image: 
           linear-gradient(to right, #e2e8f0 1px, transparent 1px),
           linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
         background-size: 40px 40px;
+      }
+
+      .dark .blueprint-grid {
+        background-image: 
+          linear-gradient(to right, #1e293b 1px, transparent 1px),
+          linear-gradient(to bottom, #1e293b 1px, transparent 1px);
       }
 
       h1, h2, h3 {
@@ -35,7 +48,7 @@
 
       p {
         line-height: 1.6;
-        font-size: 1.1rem; /* تم تكبير الخط قليلاً ليتناسب مع طبيعة خط Amiri */
+        font-size: 1.1rem;
       }
 
       ::selection {
@@ -45,14 +58,42 @@
 
       @media print {
         @page { margin: 1cm; size: A4; }
-        body { background: white !important; }
+        body { background: white !important; color: black !important; padding-top: 0 !important; }
         nav, .print\:hidden { display: none !important; }
       }
 
       ::-webkit-scrollbar { width: 5px; }
       ::-webkit-scrollbar-track { background: #f8fafc; }
+      .dark ::-webkit-scrollbar-track { background: #0f172a; }
       ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+      .dark ::-webkit-scrollbar-thumb { background: #334155; }
+
+      /* Custom Animations */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-out forwards;
+      }
+
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(300%); }
+      }
     </style>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              amiri: ['Amiri', 'serif'],
+            },
+          },
+        },
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {

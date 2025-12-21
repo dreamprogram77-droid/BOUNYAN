@@ -11,6 +11,8 @@ const SBC_SYSTEM_INSTRUCTION = `
 2. المتطلبات المعمارية والإنشائية.
 3. كفاءة الطاقة.
 4. الوصول الشامل لذوي الإعاقة.
+
+عند ذكر ملاحظات فنية محددة، حاول ربطها برقم المخطط المرفوع (0 للمخطط الأول، 1 للثاني، وهكذا).
 `;
 
 export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisResult> => {
@@ -39,7 +41,17 @@ export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisRe
           executiveSummary: { type: Type.STRING, description: "A high-level overview of the compliance status and key findings" },
           details: { type: Type.STRING, description: "Detailed analysis of findings" },
           recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
-          references: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific SBC sections referenced" }
+          references: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific SBC sections referenced" },
+          findings: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                text: { type: Type.STRING, description: "Specific observation text" },
+                imageIndex: { type: Type.INTEGER, description: "The index of the related image (0 to N)" }
+              }
+            }
+          }
         },
         required: ["status", "score", "executiveSummary", "details", "recommendations", "references"]
       }
@@ -91,9 +103,6 @@ export const editBlueprintImage = async (image: ImageData, prompt: string): Prom
   return null;
 };
 
-/**
- * تحويل النص إلى كلام مسموع باستخدام نموذج TTS
- */
 export const generateSpeech = async (text: string): Promise<string | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({

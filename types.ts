@@ -7,7 +7,13 @@ export enum AppMode {
   COMPLIANCE = 'compliance',
   VOICE_ASSISTANT = 'voice',
   SEARCH = 'search',
-  IMAGE_EDITOR = 'image-editor'
+  IMAGE_EDITOR = 'image-editor',
+  CLIENT_DASHBOARD = 'dashboard'
+}
+
+export interface DetailedFinding {
+  text: string;
+  imageIndex?: number;
 }
 
 export interface AnalysisResult {
@@ -17,6 +23,7 @@ export interface AnalysisResult {
   details: string;
   recommendations: string[];
   references: string[];
+  findings?: DetailedFinding[];
 }
 
 export interface ChatMessage {
@@ -33,4 +40,21 @@ export interface ImageData {
   base64: string;
   mimeType: string;
   name: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  location: string;
+  progress: number;
+  status: 'active' | 'completed' | 'on-hold';
+  lastUpdated: string;
+}
+
+export interface Order {
+  id: string;
+  type: 'compliance_check' | 'image_edit' | 'consultation';
+  date: string;
+  status: 'pending' | 'processing' | 'completed' | 'rejected';
+  projectName: string;
 }
