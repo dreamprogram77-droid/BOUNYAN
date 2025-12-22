@@ -89,14 +89,25 @@ const VoiceAssistant: React.FC = () => {
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const pcmBlob = createBlob(inputData);
+              // Solely rely on sessionPromise resolves to send realtime input without extra guards.
               sessionPromise.then(session => {
-                if (isActive) session.sendRealtimeInput({ media: pcmBlob });
+                session.sendRealtimeInput({ media: pcmBlob });
               });
             };
             source.connect(scriptProcessor);
             scriptProcessor.connect(audioContextRef.current!.destination);
           },
           onmessage: async (message: LiveServerMessage) => {
+            // Handle audio interruption
+            const interrupted = message.serverContent?.interrupted;
+            if (interrupted) {
+              for (const source of sourcesRef.current.values()) {
+                source.stop();
+                sourcesRef.current.delete(source);
+              }
+              nextStartTimeRef.current = 0;
+            }
+
             if (message.serverContent?.outputTranscription) {
               const text = message.serverContent.outputTranscription.text;
               setMessages(prev => {

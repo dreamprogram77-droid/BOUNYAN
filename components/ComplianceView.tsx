@@ -10,6 +10,12 @@ interface UploadingFile {
   progress: number;
 }
 
+interface Task {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -105,16 +111,37 @@ const ComplianceView: React.FC = () => {
   const [activeSection, setActiveSection] = useState('summary-section');
   const [isHeaderSticky, setIsHeaderSticky] = useState(false);
   
+  // Tasks State
+  const [tasks, setTasks] = useState<Task[]>([
+    { id: '1', text: 'مراجعة المخططات الإنشائية والتأكد من تطابق الأحمال', completed: false },
+    { id: '2', text: 'التحقق من متطلبات السلامة من الحريق وكاشفات الدخان', completed: false },
+    { id: '3', text: 'مراجعة عزل الواجهات حسب كود الطاقة السعودي', completed: true },
+  ]);
+  const [newTaskText, setNewTaskText] = useState('');
+
   const [openSections, setOpenSections] = useState({
-    summary: true,
+    summary: false,
     details: true,
     recommendations: true,
     references: false,
+    tasks: true,
     faq: false,
   });
 
   const activeReaders = useRef<FileReader[]>([]);
   const reportHeaderRef = useRef<HTMLDivElement>(null);
+  const shareMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close share menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
+        setShowShareMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -133,10 +160,9 @@ const ComplianceView: React.FC = () => {
       }
 
       const sectionKeys: Record<string, keyof typeof openSections> = {
-        '1': 'summary', '2': 'details', '3': 'recommendations', '4': 'references', '5': 'faq'
+        '1': 'summary', '2': 'details', '3': 'recommendations', '4': 'references', '5': 'tasks', '6': 'faq'
       };
 
-      // Fix: Wrapping sectionId in String() to avoid implicit conversion of a symbol to a string
       const sectionId = sectionKeys[e.key];
       if (sectionId) {
         toggleSection(sectionId);
@@ -166,7 +192,7 @@ const ComplianceView: React.FC = () => {
       { threshold: 0.5, rootMargin: '-100px 0px -40% 0px' }
     );
 
-    const sections = ['summary-section', 'details-section', 'recommendations-section', 'references-section', 'faq-section'];
+    const sections = ['summary-section', 'details-section', 'recommendations-section', 'references-section', 'tasks-section', 'faq-section'];
     sections.forEach((id) => {
       const el = document.getElementById(id);
       if (el) observer.observe(el);
@@ -195,14 +221,18 @@ const ComplianceView: React.FC = () => {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      // Accessibility: move focus to the section
       const button = element.querySelector('button');
       if (button) button.focus();
     }
   };
 
-  const isUrl = (text: string) => {
-    try { new URL(text); return true; } catch (_) { return false; }
+  const handleCopyLink = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+      setShowShareMenu(false);
+    });
   };
 
   const handleCopyRef = (text: string, index: number) => {
@@ -245,6 +275,7 @@ const ComplianceView: React.FC = () => {
 
         reader.onload = () => {
           const base64 = (reader.result as string).split(',')[1];
+          // Fixed the error here: using 'file.name' instead of undefined 'image.name'
           setImages(prev => [...prev, { base64, mimeType: file.type, name: file.name }]);
           setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
           resolve();
@@ -262,12 +293,10 @@ const ComplianceView: React.FC = () => {
     await Promise.all(uploadPromises);
   };
 
-  // Fix: Correctly define handleFileUpload inside the component scope to access processFiles
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    processFiles(e.target.files);
+    if (e.target.files) processFiles(e.target.files);
   };
 
-  // Fix: Correctly define removeImage inside the component scope to access setImages
   const removeImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
   };
@@ -280,12 +309,33 @@ const ComplianceView: React.FC = () => {
     try {
       const res = await analyzeCompliance(images);
       setResult(res);
-      setOpenSections({ summary: true, details: true, recommendations: true, references: true, faq: false });
+      setOpenSections({ ...openSections, summary: false, details: true, recommendations: true, references: true });
     } catch (err) {
       setError('حدث خطأ فني أثناء تحليل المخططات.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Task Actions
+  const toggleTask = (id: string) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  };
+
+  const addTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskText.trim()) return;
+    const newTask: Task = {
+      id: Date.now().toString(),
+      text: newTaskText,
+      completed: false,
+    };
+    setTasks(prev => [...prev, newTask]);
+    setNewTaskText('');
+  };
+
+  const removeTask = (id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id));
   };
 
   const COLORS = ['#4f46e5', '#f1f5f9'];
@@ -308,39 +358,86 @@ const ComplianceView: React.FC = () => {
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); processFiles(e.dataTransfer.files); }}
-            className={`group border-3 border-dashed rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden ${
-              isDragging ? 'bg-indigo-600/5 border-indigo-600 ring-8 ring-indigo-600/5 scale-[1.02]' : 'bg-slate-50/30 dark:bg-slate-800/20 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
+            className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[300px] ${
+              isDragging 
+                ? 'marching-ants-border bg-indigo-50/50 dark:bg-indigo-900/40 scale-[1.04] shadow-2xl shadow-indigo-500/20' 
+                : 'bg-slate-50/30 dark:bg-slate-800/20 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-400'
             }`}
           >
-            <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-            <div className="w-20 h-20 rounded-3xl bg-white dark:bg-slate-900 text-indigo-500 shadow-xl border border-slate-50 flex items-center justify-center mx-auto mb-6 transition-all">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+            <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-20" />
+            
+            <div className={`w-24 h-24 rounded-3xl shadow-xl border flex items-center justify-center mb-6 transition-all duration-700 ${
+              isDragging 
+                ? 'bg-indigo-600 text-white rotate-[15deg] scale-125 border-indigo-400' 
+                : 'bg-white dark:bg-slate-900 text-indigo-500 border-slate-50 dark:border-slate-800'
+            }`}>
+              <svg className={`w-12 h-12 transition-all duration-500 ${isDragging ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
             </div>
-            <p className="font-black text-xl mb-2 text-slate-800 dark:text-white">ارفع المخططات الهندسية</p>
-            <p className="text-sm text-slate-400 font-medium">اسحب وأفلت أو انقر للاختيار</p>
+            
+            <div className="relative z-10 transition-all duration-500">
+              <p className={`font-black text-2xl mb-2 transition-all duration-300 ${isDragging ? 'text-indigo-900 dark:text-indigo-100 scale-110' : 'text-slate-800 dark:text-white'}`}>
+                {isDragging ? 'أسقط الملفات الآن' : 'ارفع المخططات الهندسية'}
+              </p>
+              <p className={`text-sm font-bold transition-opacity duration-300 ${isDragging ? 'text-indigo-600 dark:text-indigo-400 opacity-100' : 'text-slate-400 opacity-70'}`}>
+                {isDragging ? 'بنيان جاهز للتحليل الفوري' : 'اسحب وأفلت أو انقر للاختيار'}
+              </p>
+            </div>
+
+            {isDragging && (
+              <div className="absolute inset-0 bg-indigo-500/5 animate-pulse pointer-events-none z-0"></div>
+            )}
           </div>
 
-          {(images.length > 0) && (
-            <div className="mt-10 space-y-6">
+          {(images.length > 0 || uploadingFiles.length > 0) && (
+            <div className="mt-10 space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center justify-between px-2">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">المرفقات ({images.length})</h3>
-                <button onClick={() => setShowConfirmClear(true)} className="text-[10px] font-bold text-rose-500 hover:underline">حذف الكل</button>
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                  المرفقات ({images.length + uploadingFiles.length})
+                </h3>
+                {images.length > 0 && (
+                  <button onClick={() => setShowConfirmClear(true)} className="text-[10px] font-bold text-rose-500 hover:underline transition-colors hover:text-rose-600">حذف الكل</button>
+                )}
               </div>
-              <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                {uploadingFiles.map((file) => (
+                  <div key={file.id} className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 animate-pulse">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 truncate w-3/4">{file.name}</span>
+                      <span className="text-[10px] font-black text-indigo-600">{file.progress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${file.progress}%` }}></div>
+                    </div>
+                  </div>
+                ))}
+
                 {images.map((img, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700">
-                    <img src={`data:${img.mimeType};base64,${img.base64}`} className="w-12 h-10 object-cover rounded-lg" alt="" />
-                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 truncate flex-1">{img.name}</p>
-                    <button onClick={() => removeImage(index)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-indigo-200 transition-all group animate-in slide-in-from-right-4">
+                    <div className="w-14 h-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-50 dark:border-slate-800">
+                      <img src={`data:${img.mimeType};base64,${img.base64}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-slate-800 dark:text-slate-100 truncate">{img.name}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">جاهز للفحص</p>
+                    </div>
+                    <button 
+                      onClick={() => removeImage(index)} 
+                      className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
+                      title="إزالة المخطط"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
                 ))}
               </div>
+
               <button
                 onClick={handleAnalyze}
-                disabled={loading}
-                className="w-full bg-slate-900 dark:bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black text-xl hover:bg-indigo-600 shadow-2xl transition-all flex justify-center items-center gap-4 active:scale-95"
+                disabled={loading || images.length === 0 || uploadingFiles.length > 0}
+                className="w-full bg-slate-900 dark:bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black text-xl hover:bg-indigo-600 shadow-2xl transition-all flex justify-center items-center gap-4 active:scale-95 disabled:opacity-50 disabled:scale-100"
               >
                 {loading ? <div className="animate-spin h-6 w-6 border-4 border-white border-t-transparent rounded-full"></div> : <><span>بدء التدقيق الفني</span> <ShortcutBadge keys="CTRL + ↵" /></>}
               </button>
@@ -371,7 +468,7 @@ const ComplianceView: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                 <button onClick={() => window.print()} className="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">
+                 <button onClick={() => window.print()} className="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl hover:bg-indigo-600 hover:text-white transition-all" title="حفظ كـ PDF">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                  </button>
                  <button onClick={() => scrollToSection('summary-section')} className="bg-indigo-600 text-white px-6 py-3 rounded-xl text-xs font-black shadow-lg">العودة للأعلى</button>
@@ -385,7 +482,7 @@ const ComplianceView: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8 md:p-16 relative overflow-hidden">
               
               {/* Report Header */}
-              <header ref={reportHeaderRef} className="flex flex-col md:flex-row justify-between items-center gap-12 mb-20 pb-16 border-b border-slate-100 dark:border-slate-800 relative">
+              <header ref={reportHeaderRef} className="flex flex-col md:flex-row justify-between items-center gap-12 mb-12 pb-16 border-b border-slate-100 dark:border-slate-800 relative">
                 <div className="flex-1 text-center md:text-right">
                   <div className="flex items-center justify-center md:justify-start gap-3 text-indigo-600 dark:text-indigo-400 font-black mb-6 tracking-widest uppercase text-xs">
                     <span className="w-10 h-px bg-indigo-600"></span>
@@ -409,7 +506,7 @@ const ComplianceView: React.FC = () => {
                       <span className="text-[10px] text-slate-400 font-black uppercase">%</span>
                     </div>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-3 text-center md:text-right">
                     <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block">تقييم النظام</span>
                     <span className={`px-8 py-3 rounded-2xl text-xs font-black border uppercase tracking-widest shadow-lg block text-center ${
                       result.status === 'compliant' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'
@@ -420,11 +517,63 @@ const ComplianceView: React.FC = () => {
                 </div>
               </header>
 
+              {/* Permanent Executive Summary Card */}
+              <div className="mb-16 animate-in fade-in slide-in-from-top-4 duration-700">
+                <div className="bg-indigo-600 dark:bg-indigo-600 text-white p-8 md:p-12 rounded-[3rem] shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                    <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                        <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5"/>
+                      </pattern>
+                      <rect width="100" height="100" fill="url(#grid)" />
+                    </svg>
+                  </div>
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 text-indigo-100 font-black mb-6 tracking-widest uppercase text-xs">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      موجز المراجعة التنفيذية
+                    </div>
+                    
+                    <div className="flex flex-col md:flex-row gap-10 items-start">
+                      <div className="flex-1">
+                        <h3 className="text-2xl md:text-3xl font-black mb-6 leading-tight tracking-tight">
+                          تم تحليل المخططات بنجاح؛ المشروع بنسبة امتثال تقنية بلغت {result.score}٪.
+                        </h3>
+                        <p className="text-indigo-50/80 text-lg md:text-xl font-medium leading-relaxed max-w-2xl">
+                          {result.executiveSummary}
+                        </p>
+                      </div>
+                      
+                      <div className="w-full md:w-auto shrink-0 bg-white/10 backdrop-blur-md p-6 rounded-[2rem] border border-white/20">
+                         <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between gap-8">
+                               <span className="text-[10px] font-black uppercase tracking-widest text-indigo-200">النتيجة النهائية</span>
+                               <span className="text-2xl font-black">{result.score}/100</span>
+                            </div>
+                            <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
+                               <div className="bg-white h-full transition-all duration-1000 ease-out" style={{ width: `${result.score}%` }}></div>
+                            </div>
+                            <div className="pt-2">
+                               <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                                 result.status === 'compliant' ? 'bg-emerald-400 text-emerald-900' : 'bg-amber-400 text-amber-900'
+                               }`}>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                                  {result.status} Status
+                               </span>
+                            </div>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid gap-12">
                 <CollapsibleSection
                   id="summary-section"
-                  title="الملخص التنفيذي"
-                  description="نظرة عامة على حالة المشروع والامتثال للأكواد."
+                  title="نص الملخص التفصيلي"
+                  description="التفاصيل النصية الكاملة للملخص التنفيذي."
                   isOpen={openSections.summary}
                   onToggle={() => toggleSection('summary')}
                   shortcut="1"
@@ -447,7 +596,6 @@ const ComplianceView: React.FC = () => {
                   <div className="space-y-8">
                     <p className="text-lg mb-8 leading-relaxed whitespace-pre-wrap">{result.details}</p>
                     
-                    {/* Visual Mapping Interface */}
                     {result.findings && result.findings.length > 0 && (
                       <div className="mt-12 space-y-6">
                         <h4 className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-3">
@@ -479,7 +627,6 @@ const ComplianceView: React.FC = () => {
                   </div>
                 </CollapsibleSection>
 
-                {/* Remaining sections maintained for completeness */}
                 <CollapsibleSection id="recommendations-section" title="التوصيات والخطوات التصحيحية" isOpen={openSections.recommendations} onToggle={() => toggleSection('recommendations')} shortcut="3" icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}>
                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {result.recommendations.map((rec, i) => (
@@ -491,7 +638,6 @@ const ComplianceView: React.FC = () => {
                   </ul>
                 </CollapsibleSection>
 
-                {/* Reference Section with aria-labeling */}
                 <CollapsibleSection id="references-section" title="المصادر والأكواد المرجعية" isOpen={openSections.references} onToggle={() => toggleSection('references')} shortcut="4" icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13" /></svg>}>
                    <div className="flex flex-wrap gap-4" role="list">
                     {result.references.map((ref, i) => (
@@ -502,18 +648,123 @@ const ComplianceView: React.FC = () => {
                     ))}
                   </div>
                 </CollapsibleSection>
+
+                {/* Tasks Section */}
+                <CollapsibleSection 
+                  id="tasks-section" 
+                  title="المهام والخطوات الإجرائية" 
+                  description="قائمة مرجعية لمتابعة الخطوات التصحيحية اللازمة للمشروع."
+                  isOpen={openSections.tasks} 
+                  onToggle={() => toggleSection('tasks')} 
+                  shortcut="5" 
+                  icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 14l2 2 4-4" /></svg>}
+                >
+                  <div className="space-y-8">
+                    <form onSubmit={addTask} className="flex gap-4">
+                      <input 
+                        type="text" 
+                        value={newTaskText}
+                        onChange={(e) => setNewTaskText(e.target.value)}
+                        placeholder="إضافة مهمة جديدة..."
+                        className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-sm font-bold focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 outline-none"
+                      />
+                      <button type="submit" className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95">إضافة</button>
+                    </form>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      {tasks.map((task) => (
+                        <div key={task.id} className={`flex items-center gap-6 p-6 rounded-[2rem] border transition-all ${task.completed ? 'bg-emerald-50/30 border-emerald-100 dark:border-emerald-900/20' : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800'}`}>
+                          <button 
+                            onClick={() => toggleTask(task.id)}
+                            className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}
+                          >
+                            {task.completed && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                          </button>
+                          <span className={`flex-1 text-lg font-bold transition-all ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
+                            {task.text}
+                          </span>
+                          <button onClick={() => removeTask(task.id)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-6 rounded-2xl flex items-center justify-between">
+                       <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">إنجاز المهام</span>
+                       <div className="flex items-center gap-3">
+                          <span className="text-sm font-black text-slate-900 dark:text-white">
+                            {tasks.filter(t => t.completed).length} من {tasks.length}
+                          </span>
+                          <div className="w-32 bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div className="bg-indigo-600 h-full transition-all duration-500" style={{ width: `${(tasks.filter(t => t.completed).length / (tasks.length || 1)) * 100}%` }}></div>
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+                </CollapsibleSection>
               </div>
 
-              {/* Actions Footer */}
-              <footer className="mt-24 pt-16 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-6 justify-center print:hidden">
+              <footer className="mt-24 pt-16 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-6 justify-center print:hidden relative">
                  <button onClick={() => window.print()} className="flex items-center gap-4 bg-slate-900 text-white px-12 py-6 rounded-[2rem] font-black text-xl hover:bg-indigo-600 shadow-2xl transition-all">
-                    تصدير التقرير
+                    تحميل كـ PDF
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                  </button>
-                 <button onClick={() => window.location.href = `mailto:?subject=Engineering Audit&body=Compliance: ${result.score}%`} className="flex items-center gap-4 bg-indigo-600 text-white px-12 py-6 rounded-[2rem] font-black text-xl hover:bg-indigo-700 shadow-xl transition-all">
-                    مشاركة
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" /></svg>
-                 </button>
+                 
+                 <div className="relative" ref={shareMenuRef}>
+                   <button 
+                     onClick={() => setShowShareMenu(!showShareMenu)}
+                     className="flex items-center gap-4 bg-indigo-600 text-white px-12 py-6 rounded-[2rem] font-black text-xl hover:bg-indigo-700 shadow-xl transition-all"
+                   >
+                     مشاركة التقرير
+                     <svg className={`w-6 h-6 transition-transform duration-300 ${showShareMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                   </button>
+
+                   {/* Refined Share Dropdown */}
+                   <div className={`absolute bottom-full mb-6 left-1/2 -translate-x-1/2 w-72 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-2xl p-4 transition-all duration-500 origin-bottom z-[70] ${showShareMenu ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}`}>
+                      <div className="space-y-2">
+                        <button 
+                          onClick={handleCopyLink}
+                          className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            </div>
+                            <span className="font-black text-sm">{copySuccess ? 'تم النسخ!' : 'نسخ الرابط المباشر'}</span>
+                          </div>
+                          <svg className="w-4 h-4 opacity-0 group-hover:opacity-40 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+
+                        <a 
+                          href={`mailto:?subject=تقرير امتثال هندسي: #${Math.random().toString(36).substr(2,6).toUpperCase()}&body=يمكنك الاطلاع على التقرير الفني عبر الرابط التالي: ${window.location.href}`}
+                          className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8" /></svg>
+                            </div>
+                            <span className="font-black text-sm">إرسال عبر البريد</span>
+                          </div>
+                        </a>
+
+                        <a 
+                          href={`https://wa.me/?text=${encodeURIComponent(`اطلع على تقرير الامتثال الهندسي الجديد: ${window.location.href}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            </div>
+                            <span className="font-black text-sm">واتساب</span>
+                          </div>
+                        </a>
+                      </div>
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white dark:bg-slate-900 rotate-45 border-r border-b border-slate-100 dark:border-slate-800"></div>
+                   </div>
+                 </div>
               </footer>
             </div>
           </div>
@@ -528,15 +779,14 @@ const ComplianceView: React.FC = () => {
         )}
       </div>
 
-      {/* Confirmation Modal for Clearing */}
       {showConfirmClear && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md p-10 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800">
             <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4">هل أنت متأكد من الحذف؟</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-8 font-medium">سيتم مسح كافة المخططّات المرفوعة حالياً.</p>
             <div className="flex gap-4">
-              <button onClick={() => { setImages([]); setShowConfirmClear(false); }} className="flex-1 bg-rose-600 text-white py-4 rounded-2xl font-black text-sm">تأكيد الحذف</button>
-              <button onClick={() => setShowConfirmClear(false)} className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-4 rounded-2xl font-black text-sm">إلغاء [ESC]</button>
+              <button onClick={() => { setImages([]); setShowConfirmClear(false); }} className="flex-1 bg-rose-600 text-white py-4 rounded-2xl font-black text-sm transition-all hover:bg-rose-700">تأكيد الحذف</button>
+              <button onClick={() => setShowConfirmClear(false)} className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-4 rounded-2xl font-black text-sm transition-all hover:bg-slate-200 dark:hover:bg-slate-700">إلغاء [ESC]</button>
             </div>
           </div>
         </div>

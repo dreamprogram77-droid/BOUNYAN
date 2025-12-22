@@ -7,12 +7,31 @@ import VoiceAssistant from './VoiceAssistant';
 
 type DashboardTab = 'projects' | 'compliance' | 'search' | 'editor' | 'voice' | 'orders' | 'invoices' | 'companies' | 'profile';
 
+interface ProjectData {
+  name: string;
+  ref: string;
+  progress: number;
+  status: string;
+  risk: string;
+}
+
 const ClientDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<DashboardTab>('projects');
+  const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
+  const [projectsList, setProjectsList] = useState<ProjectData[]>([
+    { name: 'برج الملقا السكني', ref: 'BUN-2024-001', progress: 85, status: 'في التنفيذ', risk: 'منخفض' },
+    { name: 'مجمع واحة الياسمين', ref: 'BUN-2024-002', progress: 30, status: 'مرحلة التصميم', risk: 'متوسط' },
+  ]);
+
+  const [newProject, setNewProject] = useState({
+    name: '',
+    status: 'في التنفيذ',
+    progress: 0
+  });
 
   const mainMenuItems = [
     { id: 'projects', label: 'المشاريع', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', color: 'indigo' },
-    { id: 'orders', label: 'الطلبات والعمليات', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', color: 'slate' },
+    { id: 'orders', label: 'الطلبات والعمليات', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z', color: 'slate' },
     { id: 'invoices', label: 'الفواتير والمالية', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z', color: 'slate' },
   ];
 
@@ -22,6 +41,21 @@ const ClientDashboard: React.FC = () => {
     { id: 'editor', label: 'محرر المخططات', icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z', color: 'amber' },
     { id: 'voice', label: 'المساعد الصوتي', icon: 'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z', color: 'rose' },
   ];
+
+  const handleAddProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProject.name) return;
+
+    const project: ProjectData = {
+      ...newProject,
+      ref: `BUN-2024-${String(projectsList.length + 1).padStart(3, '0')}`,
+      risk: 'منخفض'
+    };
+
+    setProjectsList([project, ...projectsList]);
+    setNewProject({ name: '', status: 'في التنفيذ', progress: 0 });
+    setIsAddProjectModalOpen(false);
+  };
 
   const StatCard = ({ label, value, trend, color }: any) => (
     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 rounded-[2rem] shadow-sm hover:shadow-md transition-shadow">
@@ -42,21 +76,23 @@ const ClientDashboard: React.FC = () => {
         return (
           <div className="space-y-8 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <StatCard label="المشاريع النشطة" value="12" trend="+2 هذا الشهر" color="indigo" />
+              <StatCard label="المشاريع النشطة" value={projectsList.length} trend="+2 هذا الشهر" color="indigo" />
               <StatCard label="نسبة الامتثال" value="94%" trend="+1.2%" color="emerald" />
               <StatCard label="ساعات العمل" value="142" color="amber" />
             </div>
 
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-black text-slate-900 dark:text-white">سجل المشاريع الهندسية</h3>
-              <button className="bg-slate-900 dark:bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-bold hover:shadow-lg transition-all">+ مشروع جديد</button>
+              <button 
+                onClick={() => setIsAddProjectModalOpen(true)}
+                className="bg-slate-900 dark:bg-indigo-600 text-white px-6 py-2 rounded-xl text-xs font-bold hover:shadow-lg transition-all active:scale-95"
+              >
+                + مشروع جديد
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[
-                { name: 'برج الملقا السكني', ref: 'BUN-2024-001', progress: 85, status: 'في التنفيذ', risk: 'منخفض' },
-                { name: 'مجمع واحة الياسمين', ref: 'BUN-2024-002', progress: 30, status: 'مرحلة التصميم', risk: 'متوسط' },
-              ].map((p, i) => (
+              {projectsList.map((p, i) => (
                 <div key={i} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-8 rounded-3xl hover:border-indigo-200 dark:hover:border-indigo-900 transition-all group shadow-sm">
                   <div className="flex justify-between items-start mb-6">
                     <div>
@@ -71,7 +107,7 @@ const ClientDashboard: React.FC = () => {
                        <span className="text-slate-900 dark:text-white">{p.progress}%</span>
                     </div>
                     <div className="w-full bg-slate-50 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${p.progress}%` }}></div>
+                      <div className="bg-indigo-600 h-full rounded-full transition-all duration-1000" style={{ width: `${p.progress}%` }}></div>
                     </div>
                   </div>
                 </div>
@@ -116,7 +152,6 @@ const ClientDashboard: React.FC = () => {
     }
   };
 
-  // Fix: Explicitly type NavItem as React.FC to handle special props like 'key' when used in .map()
   const NavItem: React.FC<{ item: any }> = ({ item }) => (
     <button
       onClick={() => setActiveTab(item.id as DashboardTab)}
@@ -127,7 +162,7 @@ const ClientDashboard: React.FC = () => {
       }`}
     >
       <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
-        activeTab === item.id ? `bg-${item.color}-50 dark:bg-${item.color}-900/30 text-${item.color}-600` : 'bg-transparent group-hover:bg-slate-100 dark:group-hover:bg-slate-700'
+        activeTab === item.id ? `bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600` : 'bg-transparent group-hover:bg-slate-100 dark:group-hover:bg-slate-700'
       }`}>
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} />
@@ -143,6 +178,68 @@ const ClientDashboard: React.FC = () => {
   return (
     <div className="flex flex-col lg:flex-row bg-white dark:bg-slate-950 min-h-[900px] rounded-[3.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-2xl shadow-slate-200/50 dark:shadow-none transition-colors">
       
+      {/* Add Project Modal */}
+      {isAddProjectModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg p-10 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-bl-full pointer-events-none"></div>
+            
+            <div className="flex justify-between items-center mb-10 relative">
+               <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">إضافة مشروع جديد</h3>
+               <button onClick={() => setIsAddProjectModalOpen(false)} className="text-slate-400 hover:text-rose-500">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+               </button>
+            </div>
+
+            <form onSubmit={handleAddProject} className="space-y-6 relative">
+               <div>
+                  <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2 mr-1">اسم المشروع</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newProject.name}
+                    onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                    placeholder="مثال: برج التطوير الإداري"
+                    className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 focus:border-indigo-500 transition-all font-medium dark:text-white"
+                  />
+               </div>
+
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2 mr-1">الحالة</label>
+                    <select 
+                      value={newProject.status}
+                      onChange={(e) => setNewProject({...newProject, status: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none appearance-none font-medium dark:text-white"
+                    >
+                      <option>في التنفيذ</option>
+                      <option>مرحلة التصميم</option>
+                      <option>مكتمل</option>
+                      <option>متوقف مؤقتاً</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-black text-slate-700 dark:text-slate-300 mb-2 mr-1">نسبة الإنجاز (%)</label>
+                    <input 
+                      type="number" 
+                      min="0"
+                      max="100"
+                      value={newProject.progress}
+                      onChange={(e) => setNewProject({...newProject, progress: parseInt(e.target.value) || 0})}
+                      className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none font-medium dark:text-white"
+                    />
+                  </div>
+               </div>
+
+               <div className="pt-4 flex gap-4">
+                  <button type="submit" className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-xl shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all active:scale-95">تثبيت المشروع</button>
+                  <button type="button" onClick={() => setIsAddProjectModalOpen(false)} className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 py-4 rounded-2xl font-black">إلغاء</button>
+               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="w-full lg:w-80 border-l border-slate-100 dark:border-slate-800 p-8 flex flex-col bg-slate-50/20 dark:bg-slate-900/40 shrink-0">
         <div className="mb-10 px-2">
@@ -205,7 +302,7 @@ const ClientDashboard: React.FC = () => {
                  {[1,2,3].map(i => (
                    <div key={i} className="w-10 h-10 rounded-full border-4 border-white dark:border-slate-950 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400">P{i}</div>
                  ))}
-                 <div className="w-10 h-10 rounded-full border-4 border-white dark:border-slate-950 bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white">+8</div>
+                 <div className="w-10 h-10 rounded-full border-4 border-white dark:border-slate-950 bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white">+{projectsList.length}</div>
               </div>
            </div>
         </header>

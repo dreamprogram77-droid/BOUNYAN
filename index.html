@@ -81,6 +81,19 @@
         0% { transform: translateX(-100%); }
         100% { transform: translateX(300%); }
       }
+
+      /* Marching Ants Animation */
+      @keyframes border-dance {
+        0% { background-position: 0% 0%, 100% 100%, 0% 100%, 100% 0%; }
+        100% { background-position: 100% 0%, 0% 100%, 0% 0%, 100% 100%; }
+      }
+      .marching-ants-border {
+        background-image: linear-gradient(90deg, #4f46e5 50%, transparent 50%), linear-gradient(90deg, #4f46e5 50%, transparent 50%), linear-gradient(0deg, #4f46e5 50%, transparent 50%), linear-gradient(0deg, #4f46e5 50%, transparent 50%);
+        background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+        background-size: 20px 4px, 20px 4px, 4px 20px, 4px 20px;
+        background-position: 0% 0%, 100% 100%, 0% 100%, 100% 0%;
+        animation: border-dance 1s infinite linear;
+      }
     </style>
     <script>
       tailwind.config = {
