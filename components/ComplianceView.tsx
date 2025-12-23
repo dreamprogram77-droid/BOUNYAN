@@ -35,7 +35,15 @@ const CollapsibleSection: React.FC<{
   children: React.ReactNode;
   shortcut?: string;
 }> = ({ id, title, description, isOpen, onToggle, icon, children, shortcut }) => {
+  const [isClicked, setIsClicked] = useState(false);
   const contentId = `content-${id}`;
+
+  const handleToggle = () => {
+    setIsClicked(true);
+    setTimeout(() => setIsClicked(false), 400);
+    onToggle();
+  };
+
   return (
     <section id={id} className={`bg-white dark:bg-slate-900 rounded-[2.5rem] border transition-all duration-700 transform ${
       isOpen 
@@ -43,20 +51,25 @@ const CollapsibleSection: React.FC<{
         : 'border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-indigo-100 dark:hover:border-indigo-900/20'
     } scroll-mt-24 overflow-hidden`}>
       <button
-        onClick={onToggle}
+        onClick={handleToggle}
         aria-expanded={isOpen}
         aria-controls={contentId}
-        className={`w-full flex items-center justify-between p-7 md:p-9 text-right transition-all duration-500 focus:outline-none focus:ring-4 focus:ring-indigo-100/50 dark:focus:ring-indigo-900/20 ${
+        className={`w-full flex items-center justify-between p-7 md:p-9 text-right transition-all duration-500 focus:outline-none focus:ring-4 focus:ring-indigo-100/50 dark:focus:ring-indigo-900/20 group ${
           isOpen ? 'bg-indigo-50/20 dark:bg-indigo-900/10' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'
         }`}
       >
         <div className="flex items-center gap-6">
-          <div className={`p-4 rounded-2xl transition-all duration-500 ${
+          <div className={`p-4 rounded-2xl transition-all duration-500 relative ${
+            isClicked ? 'scale-90' : ''
+          } ${
             isOpen 
               ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200 dark:shadow-none rotate-12 scale-110' 
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-500'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-600 group-hover:scale-110 group-hover:rotate-6'
           }`}>
             {icon}
+            {isClicked && (
+              <div className="absolute inset-0 rounded-2xl animate-ping bg-indigo-400/30"></div>
+            )}
           </div>
           <div className="text-right">
             <h3 className={`font-black text-2xl md:text-3xl transition-all duration-500 flex items-center ${
@@ -73,7 +86,7 @@ const CollapsibleSection: React.FC<{
           </div>
         </div>
         <div className={`p-3 rounded-full transition-all duration-700 ${
-          isOpen ? 'bg-indigo-600 text-white rotate-180 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-300'
+          isOpen ? 'bg-indigo-600 text-white rotate-180 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-300 group-hover:text-indigo-500'
         }`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
@@ -111,7 +124,6 @@ const ComplianceView: React.FC = () => {
   const [activeSection, setActiveSection] = useState('summary-section');
   const [isHeaderSticky, setIsHeaderSticky] = useState(false);
   
-  // Tasks State
   const [tasks, setTasks] = useState<Task[]>([
     { id: '1', text: 'مراجعة المخططات الإنشائية والتأكد من تطابق الأحمال', completed: false },
     { id: '2', text: 'التحقق من متطلبات السلامة من الحريق وكاشفات الدخان', completed: false },
@@ -132,7 +144,6 @@ const ComplianceView: React.FC = () => {
   const reportHeaderRef = useRef<HTMLDivElement>(null);
   const shareMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close share menu on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
@@ -143,7 +154,6 @@ const ComplianceView: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
@@ -159,13 +169,13 @@ const ComplianceView: React.FC = () => {
         if (images.length > 0) setShowConfirmClear(true);
       }
 
-      const sectionKeys: Record<string, keyof typeof openSections> = {
+      const sectionKeys: Record<string, string> = {
         '1': 'summary', '2': 'details', '3': 'recommendations', '4': 'references', '5': 'tasks', '6': 'faq'
       };
 
       const sectionId = sectionKeys[e.key];
       if (sectionId) {
-        toggleSection(sectionId);
+        toggleSection(sectionId as keyof typeof openSections);
         if (result) scrollToSection(`${String(sectionId)}-section`);
       }
 
@@ -179,7 +189,6 @@ const ComplianceView: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [images, loading, uploadingFiles, result, openSections]);
 
-  // Intersection Observer for Active Section & Sticky Header
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -198,7 +207,6 @@ const ComplianceView: React.FC = () => {
       if (el) observer.observe(el);
     });
 
-    // Sticky Header Scroll Logic
     const handleScroll = () => {
       if (reportHeaderRef.current) {
         const { bottom } = reportHeaderRef.current.getBoundingClientRect();
@@ -275,7 +283,6 @@ const ComplianceView: React.FC = () => {
 
         reader.onload = () => {
           const base64 = (reader.result as string).split(',')[1];
-          // Fixed the error here: using 'file.name' instead of undefined 'image.name'
           setImages(prev => [...prev, { base64, mimeType: file.type, name: file.name }]);
           setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
           resolve();
@@ -317,7 +324,6 @@ const ComplianceView: React.FC = () => {
     }
   };
 
-  // Task Actions
   const toggleTask = (id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
@@ -358,17 +364,17 @@ const ComplianceView: React.FC = () => {
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); processFiles(e.dataTransfer.files); }}
-            className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[300px] ${
+            className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed ${
               isDragging 
-                ? 'marching-ants-border bg-indigo-50/50 dark:bg-indigo-900/40 scale-[1.04] shadow-2xl shadow-indigo-500/20' 
-                : 'bg-slate-50/30 dark:bg-slate-800/20 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-400'
+                ? 'marching-ants-border bg-indigo-50 dark:bg-indigo-900/30 scale-[1.04] shadow-2xl shadow-indigo-500/20 border-indigo-400 dark:border-indigo-500 ring-8 ring-indigo-500/5' 
+                : 'bg-slate-50/30 dark:bg-slate-800/20 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-400'
             }`}
           >
             <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-20" />
             
             <div className={`w-24 h-24 rounded-3xl shadow-xl border flex items-center justify-center mb-6 transition-all duration-700 ${
               isDragging 
-                ? 'bg-indigo-600 text-white rotate-[15deg] scale-125 border-indigo-400' 
+                ? 'bg-indigo-600 text-white rotate-[15deg] scale-125 border-indigo-300 shadow-indigo-200 -translate-y-4' 
                 : 'bg-white dark:bg-slate-900 text-indigo-500 border-slate-50 dark:border-slate-800'
             }`}>
               <svg className={`w-12 h-12 transition-all duration-500 ${isDragging ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -378,15 +384,15 @@ const ComplianceView: React.FC = () => {
             
             <div className="relative z-10 transition-all duration-500">
               <p className={`font-black text-2xl mb-2 transition-all duration-300 ${isDragging ? 'text-indigo-900 dark:text-indigo-100 scale-110' : 'text-slate-800 dark:text-white'}`}>
-                {isDragging ? 'أسقط الملفات الآن' : 'ارفع المخططات الهندسية'}
+                {isDragging ? 'أسقط المخططات الآن' : 'ارفع المخططات الهندسية'}
               </p>
               <p className={`text-sm font-bold transition-opacity duration-300 ${isDragging ? 'text-indigo-600 dark:text-indigo-400 opacity-100' : 'text-slate-400 opacity-70'}`}>
-                {isDragging ? 'بنيان جاهز للتحليل الفوري' : 'اسحب وأفلت أو انقر للاختيار'}
+                {isDragging ? 'بُنيان جاهز للتدقيق الفوري' : 'اسحب وأفلت أو انقر للاختيار'}
               </p>
             </div>
 
             {isDragging && (
-              <div className="absolute inset-0 bg-indigo-500/5 animate-pulse pointer-events-none z-0"></div>
+              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/10 via-transparent to-indigo-500/10 animate-pulse pointer-events-none z-0"></div>
             )}
           </div>
 
@@ -649,7 +655,6 @@ const ComplianceView: React.FC = () => {
                   </div>
                 </CollapsibleSection>
 
-                {/* Tasks Section */}
                 <CollapsibleSection 
                   id="tasks-section" 
                   title="المهام والخطوات الإجرائية" 
@@ -703,6 +708,34 @@ const ComplianceView: React.FC = () => {
                     </div>
                   </div>
                 </CollapsibleSection>
+
+                <CollapsibleSection 
+                  id="faq-section" 
+                  title="الأسئلة الشائعة حول الامتثال" 
+                  description="إجابات سريعة حول أكثر النقاط تساؤلاً في كود البناء السعودي."
+                  isOpen={openSections.faq} 
+                  onToggle={() => toggleSection('faq')} 
+                  shortcut="6" 
+                  icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                >
+                  <div className="space-y-6">
+                    {[
+                      { q: "ما هي المتطلبات الأساسية لمقاومة الحريق في المباني السكنية؟", a: "يتطلب الكود السعودي توفير مخارج طوارئ محددة، واستخدام مواد بناء مقاومة للحريق حسب تصنيف المبنى، وتركيب كاشفات دخان ونظم إنذار مربوطة بلوحة تحكم." },
+                      { q: "هل يشمل التقرير بنود كود الطاقة؟", a: "نعم، يقوم الذكاء الاصطناعي بمراجعة قيم العزل الحراري (U-values) ونوعية الزجاج المستخدم لضمان كفاءة استهلاك الطاقة." },
+                      { q: "كيف يتم تحديد درجة الامتثال النهائية؟", a: "يتم احتساب الدرجة بناءً على وزن كل بند في الكود؛ البنود الحرجة المتعلقة بالسلامة لها وزن أكبر وتؤثر بشكل مباشر على حالة الامتثال." }
+                    ].map((item, i) => (
+                      <div key={i} className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-100 dark:border-slate-800 transition-all hover:border-indigo-100">
+                        <h4 className="text-lg font-black text-slate-900 dark:text-white mb-3 flex items-center gap-3">
+                          <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                          {item.q}
+                        </h4>
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 leading-relaxed pr-5">
+                          {item.a}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleSection>
               </div>
 
               <footer className="mt-24 pt-16 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-6 justify-center print:hidden relative">
@@ -720,7 +753,6 @@ const ComplianceView: React.FC = () => {
                      <svg className={`w-6 h-6 transition-transform duration-300 ${showShareMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                    </button>
 
-                   {/* Refined Share Dropdown */}
                    <div className={`absolute bottom-full mb-6 left-1/2 -translate-x-1/2 w-72 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-2xl p-4 transition-all duration-500 origin-bottom z-[70] ${showShareMenu ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}`}>
                       <div className="space-y-2">
                         <button 
@@ -737,7 +769,7 @@ const ComplianceView: React.FC = () => {
                         </button>
 
                         <a 
-                          href={`mailto:?subject=تقرير امتثال هندسي: #${Math.random().toString(36).substr(2,6).toUpperCase()}&body=يمكنك الاطلاع على التقرير الفني عبر الرابط التالي: ${window.location.href}`}
+                          href={`mailto:?subject=تقرير امتثال هندسي&body=${window.location.href}`}
                           className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
                         >
                           <div className="flex items-center gap-3">
@@ -749,7 +781,7 @@ const ComplianceView: React.FC = () => {
                         </a>
 
                         <a 
-                          href={`https://wa.me/?text=${encodeURIComponent(`اطلع على تقرير الامتثال الهندسي الجديد: ${window.location.href}`)}`}
+                          href={`https://wa.me/?text=${encodeURIComponent(window.location.href)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
