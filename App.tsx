@@ -87,7 +87,7 @@ const App: React.FC = () => {
       case AppMode.HOME:
         return <HomeView onStart={(m) => protectedNavigate(m)} />;
       case AppMode.PRICING:
-        return <PricingView />;
+        return <PricingView onSubscribe={(m) => setMode(m)} />;
       case AppMode.LOGIN:
         return <LoginView onSwitch={(m) => m === AppMode.HOME ? handleLoginSuccess() : setMode(m)} />;
       case AppMode.REGISTER:

@@ -34,7 +34,8 @@ const CollapsibleSection: React.FC<{
   icon: React.ReactNode;
   children: React.ReactNode;
   shortcut?: string;
-}> = ({ id, title, description, isOpen, onToggle, icon, children, shortcut }) => {
+  accentIcon?: React.ReactNode;
+}> = ({ id, title, description, isOpen, onToggle, icon, children, shortcut, accentIcon }) => {
   const [isClicked, setIsClicked] = useState(false);
   const contentId = `content-${id}`;
 
@@ -60,22 +61,29 @@ const CollapsibleSection: React.FC<{
       >
         <div className="flex items-center gap-6">
           <div className={`p-4 rounded-2xl transition-all duration-500 relative ${
-            isClicked ? 'scale-90' : ''
+            isClicked ? 'scale-75 rotate-12' : ''
           } ${
             isOpen 
               ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200 dark:shadow-none rotate-12 scale-110' 
               : 'bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:text-indigo-600 group-hover:scale-110 group-hover:rotate-6'
           }`}>
-            {icon}
+            <div className={`transition-transform duration-500 ${isOpen ? 'animate-pulse' : 'group-hover:animate-bounce'}`}>
+              {icon}
+            </div>
             {isClicked && (
               <div className="absolute inset-0 rounded-2xl animate-ping bg-indigo-400/30"></div>
             )}
           </div>
           <div className="text-right">
-            <h3 className={`font-black text-2xl md:text-3xl transition-all duration-500 flex items-center ${
+            <h3 className={`font-black text-2xl md:text-3xl transition-all duration-500 flex items-center gap-3 ${
               isOpen ? 'text-slate-900 dark:text-white translate-x-[-4px]' : 'text-slate-600 dark:text-slate-400'
             }`}>
               {title}
+              {accentIcon && (
+                <span className={`transition-all duration-700 ${isOpen ? 'opacity-100 scale-100 rotate-0 text-indigo-500' : 'opacity-0 scale-50 -rotate-45 text-slate-300'}`}>
+                  {accentIcon}
+                </span>
+              )}
               {shortcut && <ShortcutBadge keys={shortcut} />}
             </h3>
             {description && (
@@ -86,7 +94,7 @@ const CollapsibleSection: React.FC<{
           </div>
         </div>
         <div className={`p-3 rounded-full transition-all duration-700 ${
-          isOpen ? 'bg-indigo-600 text-white rotate-180 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-300 group-hover:text-indigo-500'
+          isOpen ? 'bg-indigo-600 text-white rotate-180 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-300 group-hover:text-indigo-500 group-hover:scale-125'
         }`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
@@ -397,7 +405,7 @@ const ComplianceView: React.FC = () => {
           </div>
 
           {(images.length > 0 || uploadingFiles.length > 0) && (
-            <div className="mt-10 space-y-6 animate-in fade-in duration-300">
+            <div className="mt-10 space-y-6 animate-in fade-in duration-700">
               <div className="flex items-center justify-between px-2">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
                   المرفقات ({images.length + uploadingFiles.length})
@@ -409,7 +417,7 @@ const ComplianceView: React.FC = () => {
 
               <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                 {uploadingFiles.map((file) => (
-                  <div key={file.id} className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 animate-pulse">
+                  <div key={file.id} className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 animate-pulse hover:scale-[1.02] transition-transform">
                     <div className="flex justify-between items-center mb-3">
                       <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 truncate w-3/4">{file.name}</span>
                       <span className="text-[10px] font-black text-indigo-600">{file.progress}%</span>
@@ -421,7 +429,7 @@ const ComplianceView: React.FC = () => {
                 ))}
 
                 {images.map((img, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-indigo-200 transition-all group animate-in slide-in-from-right-4">
+                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 hover:border-indigo-400 hover:shadow-2xl hover:shadow-indigo-500/10 hover:scale-[1.03] transition-all duration-300 group animate-in slide-in-from-right-4">
                     <div className="w-14 h-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-50 dark:border-slate-800">
                       <img src={`data:${img.mimeType};base64,${img.base64}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
                     </div>
@@ -484,9 +492,12 @@ const ComplianceView: React.FC = () => {
         )}
 
         {result ? (
-          <div className="bg-white/50 dark:bg-slate-900/50 p-6 md:p-10 rounded-[4rem] border border-slate-200/50 dark:border-slate-800/50 shadow-inner animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-8 md:p-16 relative overflow-hidden">
+          <div className="bg-indigo-50/10 dark:bg-slate-900/50 p-6 md:p-12 rounded-[4.5rem] border border-indigo-100/50 dark:border-indigo-900/30 shadow-[inset_0_2px_15px_rgba(79,70,229,0.05)] animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.12),0_30px_60px_-30px_rgba(79,70,229,0.15)] border-2 border-indigo-50/50 dark:border-indigo-900/20 p-8 md:p-16 relative overflow-hidden group/card">
               
+              {/* Report Accent Bar */}
+              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-indigo-600 via-indigo-400 to-indigo-600"></div>
+
               {/* Report Header */}
               <header ref={reportHeaderRef} className="flex flex-col md:flex-row justify-between items-center gap-12 mb-12 pb-16 border-b border-slate-100 dark:border-slate-800 relative">
                 <div className="flex-1 text-center md:text-right">
@@ -597,6 +608,7 @@ const ComplianceView: React.FC = () => {
                   isOpen={openSections.details}
                   onToggle={() => toggleSection('details')}
                   shortcut="2"
+                  accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
                   icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2z" /></svg>}
                 >
                   <div className="space-y-8">
@@ -633,7 +645,15 @@ const ComplianceView: React.FC = () => {
                   </div>
                 </CollapsibleSection>
 
-                <CollapsibleSection id="recommendations-section" title="التوصيات والخطوات التصحيحية" isOpen={openSections.recommendations} onToggle={() => toggleSection('recommendations')} shortcut="3" icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}>
+                <CollapsibleSection 
+                  id="recommendations-section" 
+                  title="التوصيات والخطوات التصحيحية" 
+                  isOpen={openSections.recommendations} 
+                  onToggle={() => toggleSection('recommendations')} 
+                  shortcut="3" 
+                  accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                  icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                >
                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {result.recommendations.map((rec, i) => (
                       <li key={i} className="flex gap-6 items-start p-8 bg-slate-50/50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-[2.5rem] hover:shadow-xl transition-all group">
@@ -644,7 +664,15 @@ const ComplianceView: React.FC = () => {
                   </ul>
                 </CollapsibleSection>
 
-                <CollapsibleSection id="references-section" title="المصادر والأكواد المرجعية" isOpen={openSections.references} onToggle={() => toggleSection('references')} shortcut="4" icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13" /></svg>}>
+                <CollapsibleSection 
+                  id="references-section" 
+                  title="المصادر والأكواد المرجعية" 
+                  isOpen={openSections.references} 
+                  onToggle={() => toggleSection('references')} 
+                  shortcut="4" 
+                  accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>}
+                  icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13" /></svg>}
+                >
                    <div className="flex flex-wrap gap-4" role="list">
                     {result.references.map((ref, i) => (
                       <button key={i} onClick={() => handleCopyRef(ref, i)} className={`inline-flex items-center gap-3 px-8 py-5 rounded-[2rem] text-sm font-black border transition-all shadow-sm ${copiedRefIndex === i ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-100'}`} aria-label={`Copy reference: ${ref}`}>
@@ -716,6 +744,7 @@ const ComplianceView: React.FC = () => {
                   isOpen={openSections.faq} 
                   onToggle={() => toggleSection('faq')} 
                   shortcut="6" 
+                  accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                   icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                 >
                   <div className="space-y-6">
@@ -769,7 +798,7 @@ const ComplianceView: React.FC = () => {
                         </button>
 
                         <a 
-                          href={`mailto:?subject=تقرير امتثال هندسي&body=${window.location.href}`}
+                          href={`mailto:?subject=تقرير امتثال هندسي: #${Math.random().toString(36).substr(2,6).toUpperCase()}&body=يمكنك الاطلاع على التقرير الفني عبر الرابط التالي: ${window.location.href}`}
                           className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
                         >
                           <div className="flex items-center gap-3">
@@ -781,7 +810,7 @@ const ComplianceView: React.FC = () => {
                         </a>
 
                         <a 
-                          href={`https://wa.me/?text=${encodeURIComponent(window.location.href)}`}
+                          href={`https://wa.me/?text=${encodeURIComponent(`اطلع على تقرير الامتثال الهندسي الجديد: ${window.location.href}`)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
