@@ -128,19 +128,10 @@ const ComplianceView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [showShareMenu, setShowShareMenu] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const [copiedRefIndex, setCopiedRefIndex] = useState<number | null>(null);
-  const [copiedRecIndex, setCopiedRecIndex] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [activeSection, setActiveSection] = useState('summary-section');
-  const [isHeaderSticky, setIsHeaderSticky] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   
-  // Finding Editing State
-  const [editingFindingIdx, setEditingFindingIdx] = useState<number | null>(null);
-  const [tempFindingText, setTempFindingText] = useState('');
-
   const [tasks, setTasks] = useState<Task[]>([
     { id: '1', text: 'مراجعة المخططات الإنشائية والتأكد من تطابق الأحمال', completed: false },
     { id: '2', text: 'التحقق من متطلبات السلامة من الحريق وكاشفات الدخان', completed: false },
@@ -158,18 +149,6 @@ const ComplianceView: React.FC = () => {
   });
 
   const activeReaders = useRef<FileReader[]>([]);
-  const reportHeaderRef = useRef<HTMLDivElement>(null);
-  const shareMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
-        setShowShareMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -186,93 +165,17 @@ const ComplianceView: React.FC = () => {
         if (images.length > 0) setShowConfirmClear(true);
       }
 
-      const sectionKeys: Record<string, string> = {
-        '1': 'summary', '2': 'details', '3': 'recommendations', '4': 'references', '5': 'tasks', '6': 'faq'
-      };
-
-      const sectionId = sectionKeys[e.key];
-      if (sectionId) {
-        toggleSection(sectionId as keyof typeof openSections);
-        if (result) scrollToSection(`${String(sectionId)}-section`);
-      }
-
       if (e.key === 'Escape') {
         setShowConfirmClear(false);
-        setShowShareMenu(false);
-        setEditingFindingIdx(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [images, loading, uploadingFiles, result, openSections]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id);
-          }
-        });
-      },
-      { threshold: 0.5, rootMargin: '-100px 0px -40% 0px' }
-    );
-
-    const sections = ['summary-section', 'details-section', 'recommendations-section', 'references-section', 'tasks-section', 'faq-section'];
-    sections.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-
-    const handleScroll = () => {
-      if (reportHeaderRef.current) {
-        const { bottom } = reportHeaderRef.current.getBoundingClientRect();
-        setIsHeaderSticky(bottom < 0);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [result]);
+  }, [images, loading, uploadingFiles]);
 
   const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      const button = element.querySelector('button');
-      if (button) button.focus();
-    }
-  };
-
-  const handleCopyLink = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-      setShowShareMenu(false);
-    });
-  };
-
-  const handleCopyRef = (text: string, index: number) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedRefIndex(index);
-      setTimeout(() => setCopiedRefIndex(null), 2000);
-    });
-  };
-
-  const handleCopyRec = (text: string, index: number) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedRecIndex(index);
-      setTimeout(() => setCopiedRecIndex(null), 2000);
-    });
   };
 
   const processFiles = async (files: FileList | null) => {
@@ -369,22 +272,6 @@ const ComplianceView: React.FC = () => {
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
-  const handleStartEditingFinding = (idx: number, text: string) => {
-    setEditingFindingIdx(idx);
-    setTempFindingText(text);
-  };
-
-  const handleSaveFindingUpdate = () => {
-    if (editingFindingIdx === null || !result) return;
-    const updatedFindings = [...(result.findings || [])];
-    updatedFindings[editingFindingIdx] = {
-      ...updatedFindings[editingFindingIdx],
-      text: tempFindingText
-    };
-    setResult({ ...result, findings: updatedFindings });
-    setEditingFindingIdx(null);
-  };
-
   const COLORS = ['#4f46e5', '#f1f5f9'];
   const chartData = result ? [{ name: 'امتثال', value: result.score }, { name: 'فجوة', value: 100 - result.score }] : [];
 
@@ -407,7 +294,7 @@ const ComplianceView: React.FC = () => {
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); processFiles(e.dataTransfer.files); }}
             className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[300px] border-2 border-dashed ${
               isDragging 
-                ? 'marching-ants-border bg-indigo-50 dark:bg-indigo-900/30 scale-[1.04] shadow-2xl shadow-indigo-500/20 border-indigo-400 dark:border-indigo-500 ring-8 ring-indigo-500/5' 
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-400 scale-[1.04]' 
                 : 'bg-slate-50/30 dark:bg-slate-800/20 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-400'
             }`}
           >
@@ -415,42 +302,34 @@ const ComplianceView: React.FC = () => {
             
             <div className={`w-24 h-24 rounded-3xl shadow-xl border flex items-center justify-center mb-6 transition-all duration-700 ${
               isDragging 
-                ? 'bg-indigo-600 text-white rotate-[15deg] scale-125 border-indigo-300 shadow-indigo-200 -translate-y-4' 
+                ? 'bg-indigo-600 text-white rotate-[15deg] scale-125 border-indigo-300' 
                 : 'bg-white dark:bg-slate-900 text-indigo-500 border-slate-50 dark:border-slate-800'
             }`}>
-              <svg className={`w-12 h-12 transition-all duration-500 ${isDragging ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-12 h-12 ${isDragging ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
             </div>
             
-            <div className="relative z-10 transition-all duration-500">
-              <p className={`font-black text-2xl mb-2 transition-all duration-300 ${isDragging ? 'text-indigo-900 dark:text-indigo-100 scale-110' : 'text-slate-800 dark:text-white'}`}>
-                {isDragging ? 'أسقط المخططات الآن' : 'ارفع المخططات الهندسية'}
-              </p>
-              <p className={`text-sm font-bold transition-opacity duration-300 ${isDragging ? 'text-indigo-600 dark:text-indigo-400 opacity-100' : 'text-slate-400 opacity-70'}`}>
-                {isDragging ? 'بُنيان جاهز للتدقيق الفوري' : 'اسحب وأفلت أو انقر للاختيار'}
-              </p>
+            <div className="relative z-10">
+              <p className="font-black text-2xl mb-2 text-slate-800 dark:text-white">ارفع المخططات</p>
+              <p className="text-sm font-bold text-slate-400 opacity-70">اسحب وأفلت أو انقر للاختيار</p>
             </div>
-
-            {isDragging && (
-              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/10 via-transparent to-indigo-500/10 animate-pulse pointer-events-none z-0"></div>
-            )}
           </div>
 
           {(images.length > 0 || uploadingFiles.length > 0) && (
-            <div className="mt-10 space-y-6 animate-in fade-in duration-700">
+            <div className="mt-10 space-y-6">
               <div className="flex items-center justify-between px-2">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
                   المرفقات ({images.length + uploadingFiles.length})
                 </h3>
                 {images.length > 0 && (
-                  <button onClick={() => setShowConfirmClear(true)} className="text-[10px] font-bold text-rose-500 hover:underline transition-colors hover:text-rose-600">حذف الكل</button>
+                  <button onClick={() => setShowConfirmClear(true)} className="text-[10px] font-bold text-rose-500 hover:underline">حذف الكل</button>
                 )}
               </div>
 
               <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                 {uploadingFiles.map((file) => (
-                  <div key={file.id} className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 animate-pulse hover:scale-[1.02] transition-transform">
+                  <div key={file.id} className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 animate-pulse">
                     <div className="flex justify-between items-center mb-3">
                       <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 truncate w-3/4">{file.name}</span>
                       <span className="text-[10px] font-black text-indigo-600">{file.progress}%</span>
@@ -462,4 +341,216 @@ const ComplianceView: React.FC = () => {
                 ))}
 
                 {images.map((img, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-
+                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700">
+                      <img src={`data:${img.mimeType};base64,${img.base64}`} alt={img.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{img.name}</p>
+                    </div>
+                    <button 
+                      onClick={() => removeImage(index)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={handleAnalyze}
+                disabled={loading || images.length === 0}
+                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-3 mt-8"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin h-6 w-6 border-3 border-white border-t-transparent rounded-full"></div>
+                    <span>جاري التحليل...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>بدء الفحص الذكي</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+        
+        {error && (
+          <div className="p-6 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-3xl text-rose-700 dark:text-rose-300 font-bold text-sm flex items-center gap-3">
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+             {error}
+          </div>
+        )}
+      </div>
+
+      {/* Main Results Area */}
+      <div className="lg:col-span-8 space-y-10">
+        {!result && !loading && (
+          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] p-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800">
+            <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-center mx-auto mb-8 text-slate-300">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-black text-slate-800 dark:text-white mb-4">بانتظار المخططات الهندسية</h3>
+            <p className="text-slate-500 dark:text-slate-400 font-medium max-w-md mx-auto">ارفع المخططات في القائمة الجانبية ثم اضغط على "بدء الفحص الذكي" للحصول على تقرير الامتثال الفوري.</p>
+          </div>
+        )}
+
+        {result && (
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <CollapsibleSection
+              id="summary-section"
+              title="ملخص الامتثال"
+              isOpen={openSections.summary}
+              onToggle={() => toggleSection('summary')}
+              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+                <div className="h-64 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                        {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-black text-slate-900 dark:text-white">{result.score}%</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">معدل الامتثال</span>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                   <div className="flex items-center gap-4">
+                      <div className={`px-4 py-2 rounded-xl font-black text-sm ${
+                        result.status === 'compliant' ? 'bg-emerald-100 text-emerald-700' :
+                        result.status === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                      }`}>
+                        {result.status === 'compliant' ? 'مطابق للكود' : result.status === 'warning' ? 'تنبيهات هامة' : 'غير مطابق'}
+                      </div>
+                   </div>
+                   <p className="text-lg font-medium leading-loose text-slate-600 dark:text-slate-300">{result.executiveSummary}</p>
+                </div>
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              id="details-section"
+              title="التفاصيل والملاحظات"
+              isOpen={openSections.details}
+              onToggle={() => toggleSection('details')}
+              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
+            >
+              <div className="space-y-8">
+                <div className="prose prose-slate dark:prose-invert max-w-none text-lg">{result.details}</div>
+                {result.findings && result.findings.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                    {result.findings.map((finding, idx) => (
+                      <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-start justify-between mb-4">
+                           <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-200">
+                             {finding.imageIndex !== undefined ? finding.imageIndex : idx + 1}
+                           </span>
+                        </div>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">{finding.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              id="recommendations-section"
+              title="توصيات التحسين"
+              isOpen={openSections.recommendations}
+              onToggle={() => toggleSection('recommendations')}
+              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+            >
+              <ul className="space-y-4">
+                {result.recommendations.map((rec, idx) => (
+                  <li key={idx} className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center shrink-0 mt-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                    </div>
+                    <span className="text-lg font-medium">{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              id="references-section"
+              title="المراجع النظامية (SBC)"
+              isOpen={openSections.references}
+              onToggle={() => toggleSection('references')}
+              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
+            >
+              <div className="flex flex-wrap gap-3">
+                {result.references.map((ref, idx) => (
+                  <div key={idx} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-xl">{ref}</div>
+                ))}
+              </div>
+            </CollapsibleSection>
+          </div>
+        )}
+
+        {/* Tasks Section */}
+        <div id="tasks-section" className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 p-10 shadow-sm">
+           <div className="flex justify-between items-center mb-8">
+              <h3 className="text-2xl font-black text-slate-800 dark:text-white">قائمة مهام التدقيق</h3>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg">Checklist</span>
+           </div>
+           
+           <form onSubmit={addTask} className="flex gap-4 mb-8">
+             <input type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} placeholder="أضف مهمة تدقيق جديدة..." className="flex-1 px-6 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 focus:border-indigo-500 transition-all font-medium dark:text-white" />
+             <button type="submit" className="bg-indigo-600 text-white w-14 h-14 rounded-2xl flex items-center justify-center hover:bg-indigo-700 shadow-lg shadow-indigo-100 dark:shadow-none transition-all">
+               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+             </button>
+           </form>
+
+           <div className="space-y-3">
+             {tasks.map((task) => (
+               <div key={task.id} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
+                 <button onClick={() => toggleTask(task.id)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}>
+                   {task.completed && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                 </button>
+                 <span className={`flex-1 font-bold text-sm ${task.completed ? 'text-slate-300 line-through' : 'text-slate-600 dark:text-slate-300'}`}>{task.text}</span>
+                 <button onClick={() => removeTask(task.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                 </button>
+               </div>
+             ))}
+           </div>
+        </div>
+      </div>
+
+      {showConfirmClear && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm p-10 rounded-[3rem] text-center shadow-2xl border border-slate-100 dark:border-slate-800">
+            <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">حذف جميع المخططات؟</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8 text-center px-4">لا يمكن التراجع عن هذا الإجراء، سيتم مسح كافة البيانات المرفوعة.</p>
+            <div className="flex gap-4">
+              <button onClick={() => { setImages([]); setShowConfirmClear(false); setResult(null); }} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm hover:bg-rose-700 transition-all">تأكيد الحذف</button>
+              <button onClick={() => setShowConfirmClear(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-sm transition-all">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ComplianceView;
