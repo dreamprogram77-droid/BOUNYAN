@@ -4,6 +4,7 @@ import ComplianceView from './ComplianceView';
 import SearchView from './SearchView';
 import ImageEditor from './ImageEditor';
 import VoiceAssistant from './VoiceAssistant';
+import { Order } from '../types';
 
 type DashboardTab = 'projects' | 'compliance' | 'search' | 'editor' | 'voice' | 'orders' | 'invoices' | 'companies' | 'profile';
 
@@ -21,6 +22,13 @@ const ClientDashboard: React.FC = () => {
   const [projectsList, setProjectsList] = useState<ProjectData[]>([
     { name: 'برج الملقا السكني', ref: 'BUN-2024-001', progress: 85, status: 'في التنفيذ', risk: 'منخفض' },
     { name: 'مجمع واحة الياسمين', ref: 'BUN-2024-002', progress: 30, status: 'مرحلة التصميم', risk: 'متوسط' },
+  ]);
+
+  const [ordersList] = useState<Order[]>([
+    { id: 'ORD-7721', type: 'compliance_check', date: '2024-05-20', status: 'completed', projectName: 'برج الملقا السكني' },
+    { id: 'ORD-8832', type: 'image_edit', date: '2024-05-22', status: 'processing', projectName: 'مجمع واحة الياسمين' },
+    { id: 'ORD-9910', type: 'consultation', date: '2024-05-23', status: 'pending', projectName: 'فيلا حي النرجس' },
+    { id: 'ORD-4412', type: 'compliance_check', date: '2024-05-18', status: 'completed', projectName: 'مستشفى السلام الطبي' },
   ]);
 
   const [newProject, setNewProject] = useState({
@@ -70,6 +78,25 @@ const ClientDashboard: React.FC = () => {
     </div>
   );
 
+  const getStatusStyle = (status: string) => {
+    switch(status) {
+      case 'completed': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'processing': return 'bg-amber-50 text-amber-600 border-amber-100';
+      case 'pending': return 'bg-slate-50 text-slate-600 border-slate-100';
+      case 'rejected': return 'bg-rose-50 text-rose-600 border-rose-100';
+      default: return 'bg-slate-50 text-slate-600';
+    }
+  };
+
+  const getTypeText = (type: string) => {
+    switch(type) {
+      case 'compliance_check': return 'فحص امتثال';
+      case 'image_edit': return 'تعديل مخطط';
+      case 'consultation': return 'استشارة تقنية';
+      default: return type;
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'projects':
@@ -112,6 +139,64 @@ const ClientDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        );
+      case 'orders':
+        return (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <StatCard label="إجمالي العمليات" value={ordersList.length} color="indigo" />
+              <StatCard label="عمليات ناجحة" value={ordersList.filter(o => o.status === 'completed').length} color="emerald" />
+              <StatCard label="قيد المعالجة" value={ordersList.filter(o => o.status === 'processing').length} color="amber" />
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-sm">
+              <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex justify-between items-center">
+                <h3 className="font-black text-xl text-slate-900 dark:text-white">سجل العمليات والطلبات الذكية</h3>
+                <div className="flex gap-2">
+                   <button className="p-2 text-slate-400 hover:text-indigo-600 transition-colors">
+                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                   </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                      <th className="px-8 py-5">رقم العملية</th>
+                      <th className="px-8 py-5">المشروع المرتبط</th>
+                      <th className="px-8 py-5">نوع العملية</th>
+                      <th className="px-8 py-5">التاريخ</th>
+                      <th className="px-8 py-5">الحالة</th>
+                      <th className="px-8 py-5">الإجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                    {ordersList.map((order) => (
+                      <tr key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
+                        <td className="px-8 py-5 text-sm font-black text-slate-900 dark:text-white">{order.id}</td>
+                        <td className="px-8 py-5 text-sm font-bold text-slate-600 dark:text-slate-300">{order.projectName}</td>
+                        <td className="px-8 py-5 text-sm font-bold text-indigo-600 dark:text-indigo-400">{getTypeText(order.type)}</td>
+                        <td className="px-8 py-5 text-sm font-bold text-slate-400">{order.date}</td>
+                        <td className="px-8 py-5">
+                          <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border ${getStatusStyle(order.status)}`}>
+                            {order.status === 'completed' ? 'مكتمل' : order.status === 'processing' ? 'قيد التنفيذ' : 'بالانتظار'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-5 text-left">
+                          <button className="p-2 text-slate-300 hover:text-indigo-600 transition-colors opacity-0 group-hover:opacity-100">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-6 bg-slate-50/30 dark:bg-slate-800/20 text-center">
+                 <button className="text-[10px] font-black text-slate-400 hover:text-indigo-600 uppercase tracking-widest transition-colors">عرض جميع العمليات المؤرشفة</button>
+              </div>
             </div>
           </div>
         );
