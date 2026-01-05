@@ -129,9 +129,13 @@ const ComplianceView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
-  const [activeSection, setActiveSection] = useState('summary-section');
   const [isDragging, setIsDragging] = useState(false);
+  const [copiedRecIndex, setCopiedRecIndex] = useState<number | null>(null);
   
+  // State for editing findings
+  const [editingFindingIndex, setEditingFindingIndex] = useState<number | null>(null);
+  const [tempFindingText, setTempFindingText] = useState('');
+
   const [tasks, setTasks] = useState<Task[]>([
     { id: '1', text: 'مراجعة المخططات الإنشائية والتأكد من تطابق الأحمال', completed: false },
     { id: '2', text: 'التحقق من متطلبات السلامة من الحريق وكاشفات الدخان', completed: false },
@@ -167,6 +171,7 @@ const ComplianceView: React.FC = () => {
 
       if (e.key === 'Escape') {
         setShowConfirmClear(false);
+        setEditingFindingIndex(null);
       }
     };
 
@@ -272,6 +277,28 @@ const ComplianceView: React.FC = () => {
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
+  const handleCopyRec = (text: string, index: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedRecIndex(index);
+      setTimeout(() => setCopiedRecIndex(null), 1500);
+    });
+  };
+
+  const startEditFinding = (index: number) => {
+    if (!result?.findings) return;
+    setEditingFindingIndex(index);
+    setTempFindingText(result.findings[index].text);
+  };
+
+  const saveFindingEdit = () => {
+    if (result && result.findings && editingFindingIndex !== null) {
+      const newFindings = [...result.findings];
+      newFindings[editingFindingIndex] = { ...newFindings[editingFindingIndex], text: tempFindingText };
+      setResult({ ...result, findings: newFindings });
+      setEditingFindingIndex(null);
+    }
+  };
+
   const COLORS = ['#4f46e5', '#f1f5f9'];
   const chartData = result ? [{ name: 'امتثال', value: result.score }, { name: 'فجوة', value: 100 - result.score }] : [];
 
@@ -279,7 +306,7 @@ const ComplianceView: React.FC = () => {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start pb-24">
       
       {/* Sidebar Upload */}
-      <div className="lg:col-span-4 space-y-8 print:hidden sticky top-28">
+      <aside className="lg:col-span-4 space-y-8 print:hidden sticky top-28">
         <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[3rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
@@ -389,10 +416,10 @@ const ComplianceView: React.FC = () => {
              {error}
           </div>
         )}
-      </div>
+      </aside>
 
       {/* Main Results Area */}
-      <div className="lg:col-span-8 space-y-10">
+      <main className="lg:col-span-8 space-y-10">
         {!result && !loading && (
           <div className="bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] p-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800">
             <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-center mx-auto mb-8 text-slate-300">
@@ -412,6 +439,7 @@ const ComplianceView: React.FC = () => {
               title="ملخص الامتثال"
               isOpen={openSections.summary}
               onToggle={() => toggleSection('summary')}
+              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
               icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
@@ -448,18 +476,26 @@ const ComplianceView: React.FC = () => {
               title="التفاصيل والملاحظات"
               isOpen={openSections.details}
               onToggle={() => toggleSection('details')}
+              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
               icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
             >
               <div className="space-y-8">
-                <div className="prose prose-slate dark:prose-invert max-w-none text-lg">{result.details}</div>
+                <div className="prose prose-slate dark:prose-invert max-w-none text-lg leading-relaxed">{result.details}</div>
                 {result.findings && result.findings.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                     {result.findings.map((finding, idx) => (
-                      <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                      <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 group hover:border-indigo-400 transition-all relative">
                         <div className="flex items-start justify-between mb-4">
                            <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-200">
-                             {finding.imageIndex !== undefined ? finding.imageIndex : idx + 1}
+                             {finding.imageIndex !== undefined ? finding.imageIndex + 1 : idx + 1}
                            </span>
+                           <button 
+                             onClick={() => startEditFinding(idx)}
+                             className="opacity-0 group-hover:opacity-100 p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
+                             title="تعديل الملاحظة"
+                           >
+                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                           </button>
                         </div>
                         <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">{finding.text}</p>
                       </div>
@@ -474,15 +510,29 @@ const ComplianceView: React.FC = () => {
               title="توصيات التحسين"
               isOpen={openSections.recommendations}
               onToggle={() => toggleSection('recommendations')}
+              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
               icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
             >
               <ul className="space-y-4">
                 {result.recommendations.map((rec, idx) => (
-                  <li key={idx} className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  <li key={idx} className="flex items-start gap-4 p-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-700 group">
                     <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center shrink-0 mt-1">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                     </div>
-                    <span className="text-lg font-medium">{rec}</span>
+                    <div className="flex-1 flex items-center justify-between gap-4">
+                      <span className="text-lg font-medium text-slate-700 dark:text-slate-200">{rec}</span>
+                      <button 
+                        onClick={() => handleCopyRec(rec, idx)}
+                        className={`shrink-0 p-2 rounded-xl transition-all ${copiedRecIndex === idx ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}
+                        title="نسخ التوصية"
+                      >
+                        {copiedRecIndex === idx ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        )}
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -493,11 +543,40 @@ const ComplianceView: React.FC = () => {
               title="المراجع النظامية (SBC)"
               isOpen={openSections.references}
               onToggle={() => toggleSection('references')}
+              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
               icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
             >
               <div className="flex flex-wrap gap-3">
                 {result.references.map((ref, idx) => (
-                  <div key={idx} className="px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-xl">{ref}</div>
+                  <div key={idx} className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-105 transition-transform cursor-pointer">{ref}</div>
+                ))}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection 
+              id="faq-section" 
+              title="الأسئلة الشائعة حول الامتثال" 
+              description="إجابات سريعة حول أكثر النقاط تساؤلاً في كود البناء السعودي."
+              isOpen={openSections.faq} 
+              onToggle={() => toggleSection('faq')} 
+              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            >
+              <div className="space-y-6">
+                {[
+                  { q: "ما هي المتطلبات الأساسية لمقاومة الحريق في المباني السكنية؟", a: "يتطلب الكود السعودي توفير مخارج طوارئ محددة، واستخدام مواد بناء مقاومة للحريق حسب تصنيف المبنى، وتركيب كاشفات دخان ونظم إنذار مربوطة بلوحة تحكم." },
+                  { q: "هل يشمل التقرير بنود كود الطاقة؟", a: "نعم، يقوم الذكاء الاصطناعي بمراجعة قيم العزل الحراري (U-values) ونوعية الزجاج المستخدم لضمان كفاءة استهلاك الطاقة." },
+                  { q: "كيف يتم تحديد درجة الامتثال النهائية؟", a: "يتم احتساب الدرجة بناءً على وزن كل بند في الكود؛ البنود الحرجة المتعلقة بالسلامة لها وزن أكبر وتؤثر بشكل مباشر على حالة الامتثال." }
+                ].map((item, i) => (
+                  <div key={i} className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-100 dark:border-slate-800 transition-all hover:border-indigo-100">
+                    <h4 className="text-lg font-black text-slate-900 dark:text-white mb-3 flex items-center gap-3">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                      {item.q}
+                    </h4>
+                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400 leading-relaxed pr-5">
+                      {item.a}
+                    </p>
+                  </div>
                 ))}
               </div>
             </CollapsibleSection>
@@ -532,25 +611,29 @@ const ComplianceView: React.FC = () => {
              ))}
            </div>
         </div>
-      </div>
+      </main>
 
-      {showConfirmClear && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm p-10 rounded-[3rem] text-center shadow-2xl border border-slate-100 dark:border-slate-800">
-            <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            </div>
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">حذف جميع المخططات؟</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8 text-center px-4">لا يمكن التراجع عن هذا الإجراء، سيتم مسح كافة البيانات المرفوعة.</p>
+      {/* Edit Finding Modal */}
+      {editingFindingIndex !== null && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xl p-8 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800">
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-6">تعديل الملاحظة الفنية</h3>
+            <textarea 
+              value={tempFindingText}
+              onChange={(e) => setTempFindingText(e.target.value)}
+              className="w-full h-40 p-6 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 transition-all font-medium text-lg leading-relaxed dark:text-white mb-8"
+            />
             <div className="flex gap-4">
-              <button onClick={() => { setImages([]); setShowConfirmClear(false); setResult(null); }} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm hover:bg-rose-700 transition-all">تأكيد الحذف</button>
-              <button onClick={() => setShowConfirmClear(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-sm transition-all">إلغاء</button>
+              <button onClick={saveFindingEdit} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">حفظ التعديلات</button>
+              <button onClick={() => setEditingFindingIndex(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm">إلغاء</button>
             </div>
           </div>
         </div>
       )}
-    </div>
-  );
-};
 
-export default ComplianceView;
+      {/* Confirm Clear Modal */}
+      {showConfirmClear && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm p-10 rounded-[3rem] text-center shadow-2xl border border-slate-100 dark:border-slate-800">
+            <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1
