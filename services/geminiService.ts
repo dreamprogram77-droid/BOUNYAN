@@ -1,37 +1,46 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse, Modality } from "@google/genai";
-import { AnalysisResult, ImageData } from "../types";
+import { AnalysisResult, ImageData, AuditType } from "../types";
 
-const SBC_SYSTEM_INSTRUCTION = `
-أنت خبير في كود البناء السعودي (SBC) والأنظمة الهندسية في المملكة العربية السعودية.
-مهمتك هي مراجعة المخططات الهندسية والتحقق من امتثالها للمعايير.
-يجب أن تكون إجاباتك دقيقة، مهنية، وباللغة العربية الفصح الفصحى.
-حلل المخططات المرفوعة بناءً على:
-1. معايير السلامة والحماية من الحريق.
-2. المتطلبات المعمارية والإنشائية.
-3. كفاءة الطاقة.
-4. الوصول الشامل لذوي الإعاقة.
+const getSystemInstruction = (auditType: AuditType) => {
+  const isSafety = auditType === AuditType.SAFETY;
+  
+  return `
+أنت خبير عالمي في كود البناء السعودي (SBC) وأنظمة الدفاع المدني في المملكة العربية السعودية.
+مهمتك الحالية هي: ${isSafety ? 'إجراء تدقيق متخصص في الأمن والسلامة والحماية من الحريق (SBC 801).' : 'مراجعة الامتثال الهندسي العام للمخططات.'}
 
-لكل ملاحظة (finding)، حدد حالتها (compliant, warning, non-compliant) وصنفها (Category) مثل: "السلامة"، "التصميم الإنشائي"، "كفاءة الطاقة".
+يجب أن تحلل المخططات المرفوعة بدقة بناءً على:
+1. ${isSafety ? 'مخارج الطوارئ ومسارات الإخلاء (SBC 801).' : 'معايير السلامة والحماية من الحريق.'}
+2. ${isSafety ? 'أنظمة إنذار الحريق والرشاشات الآلية وكواشف الدخان.' : 'المتطلبات المعمارية والإنشائية.'}
+3. ${isSafety ? 'مقاومة المواد للحريق وفواصل الحريق.' : 'كفاءة الطاقة (SBC 601/602).'}
+4. ${isSafety ? 'تأمين المداخل والمخارج وأنظمة المراقبة الأمنية.' : 'الوصول الشامل لذوي الإعاقة (SBC 201).'}
+
+لكل ملاحظة (finding)، حدد حالتها (compliant, warning, non-compliant) وصنفها (Category).
+يجب أن تكون إجاباتك مهنية، تقنية، وباللغة العربية الفصحى.
 `;
+};
 
-export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisResult> => {
+export const analyzeCompliance = async (images: ImageData[], auditType: AuditType = AuditType.GENERAL): Promise<AnalysisResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const imageParts = images.map(image => ({
     inlineData: { data: image.base64, mimeType: image.mimeType }
   }));
 
+  const promptText = auditType === AuditType.SAFETY 
+    ? "حلل هذه المخططات بدقة فنية عالية من منظور الأمن والسلامة والحماية من الحريق وفقاً لكود البناء السعودي 801. قدم النتيجة بتنسيق JSON."
+    : "حلل هذه المخططات الهندسية بدقة بناءً على كود البناء السعودي العام. قدم النتيجة بتنسيق JSON حصرياً.";
+
   const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.5-flash-lite-latest',
     contents: {
       parts: [
         ...imageParts,
-        { text: "حلل هذه المخططات الهندسية بدقة بناءً على كود البناء السعودي. قدم النتيجة بتنسيق JSON حصرياً مع تصنيف كل ملاحظة وحالتها." }
+        { text: promptText }
       ]
     },
     config: {
-      systemInstruction: SBC_SYSTEM_INSTRUCTION,
+      systemInstruction: getSystemInstruction(auditType),
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,

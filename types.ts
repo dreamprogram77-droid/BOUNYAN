@@ -12,6 +12,11 @@ export enum AppMode {
   SITE_EXPLORER = 'site-explorer'
 }
 
+export enum AuditType {
+  GENERAL = 'general',
+  SAFETY = 'safety'
+}
+
 export interface DetailedFinding {
   text: string;
   status: 'compliant' | 'warning' | 'non-compliant';

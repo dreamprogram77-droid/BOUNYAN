@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { analyzeCompliance } from '../services/geminiService';
-import { AnalysisResult, ImageData } from '../types';
+import { AnalysisResult, ImageData, AuditType } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface ShortcutBadgeProps {
@@ -120,15 +120,23 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
   );
 };
 
-// Fixed error in file components/ComplianceView.tsx on line 133: Type '() => void' is not assignable to type 'FC<{}>'.
-// This error occurred because the file was truncated. This implementation provides the full component logic.
+interface FileProgress {
+  id: string;
+  name: string;
+  progress: number;
+  reader: FileReader;
+}
+
 const ComplianceView: React.FC = () => {
   const [images, setImages] = useState<ImageData[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<FileProgress[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [activeSections, setActiveSections] = useState<string[]>(['upload']);
   const [analysisStage, setAnalysisStage] = useState(0);
+  const [auditType, setAuditType] = useState<AuditType>(AuditType.GENERAL);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const analysisStages = [
     "جاري قراءة المخططات الهندسية...",
@@ -157,27 +165,77 @@ const ComplianceView: React.FC = () => {
     );
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    files.forEach(file => {
+  const cancelAllUploads = () => {
+    uploadingFiles.forEach(f => f.reader.abort());
+    setUploadingFiles([]);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent) => {
+    const files = 'target' in e 
+      ? Array.from((e.target as HTMLInputElement).files || [])
+      : Array.from((e as React.DragEvent).dataTransfer.files || []);
+
+    if (files.length === 0) return;
+
+    const newUploads = files.map(file => {
+      const id = Math.random().toString(36).substr(2, 9);
       const reader = new FileReader();
-      reader.onload = () => {
-        setImages(prev => [...prev, {
-          base64: (reader.result as string).split(',')[1],
-          mimeType: file.type,
-          name: file.name
-        }]);
+      
+      return { id, name: file.name, progress: 0, reader, file };
+    });
+
+    setUploadingFiles(prev => [...prev, ...newUploads.map(u => ({ id: u.id, name: u.name, progress: 0, reader: u.reader }))]);
+
+    newUploads.forEach(u => {
+      u.reader.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setUploadingFiles(prev => prev.map(p => p.id === u.id ? { ...p, progress: percent } : p));
+        }
       };
-      reader.readAsDataURL(file);
+
+      u.reader.onload = () => {
+        setImages(prev => [...prev, {
+          base64: (u.reader.result as string).split(',')[1],
+          mimeType: u.file.type,
+          name: u.file.name
+        }]);
+        setUploadingFiles(prev => prev.filter(p => p.id !== u.id));
+      };
+
+      u.reader.onerror = () => {
+        setUploadingFiles(prev => prev.filter(p => p.id !== u.id));
+      };
+
+      u.reader.readAsDataURL(u.file);
     });
   };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+
+  const onDragLeave = () => {
+    setIsDraggingOver(false);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    handleFileUpload(e);
+  };
+
+  const overallProgress = uploadingFiles.length > 0 
+    ? Math.round(uploadingFiles.reduce((acc, curr) => acc + curr.progress, 0) / uploadingFiles.length)
+    : 0;
 
   const handleAnalyze = async () => {
     if (images.length === 0) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await analyzeCompliance(images);
+      const res = await analyzeCompliance(images, auditType);
       setResult(res);
       setActiveSections(['results']);
     } catch (err) {
@@ -201,13 +259,83 @@ const ComplianceView: React.FC = () => {
 
       <CollapsibleSection
         id="upload"
-        title="رفع المخططات"
+        title="إعداد الفحص ورفع المخططات"
         isOpen={activeSections.includes('upload')}
         onToggle={() => toggleSection('upload')}
         icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>}
       >
-        <div className="space-y-8">
-          <div className="border-4 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-12 text-center hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all cursor-pointer relative group">
+        <div className="space-y-10">
+          {/* Audit Type Selection */}
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-200 dark:border-slate-700">
+             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 pr-1">نوع الفحص المطلوب</h4>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button 
+                  onClick={() => setAuditType(AuditType.GENERAL)}
+                  className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all ${auditType === AuditType.GENERAL ? 'bg-indigo-600 border-indigo-500 text-white shadow-xl shadow-indigo-100 dark:shadow-none' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-indigo-200'}`}
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${auditType === AuditType.GENERAL ? 'bg-white/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-sm">امتثال عام (SBC General)</p>
+                    <p className={`text-[10px] ${auditType === AuditType.GENERAL ? 'text-indigo-100' : 'text-slate-400'}`}>معماري، إنشائي، كهربائي، كفاءة طاقة</p>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => setAuditType(AuditType.SAFETY)}
+                  className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all ${auditType === AuditType.SAFETY ? 'bg-rose-600 border-rose-500 text-white shadow-xl shadow-rose-100 dark:shadow-none' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-rose-200'}`}
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${auditType === AuditType.SAFETY ? 'bg-white/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-black text-sm">الأمن والسلامة (SBC 801)</p>
+                    <p className={`text-[10px] ${auditType === AuditType.SAFETY ? 'text-rose-100' : 'text-slate-400'}`}>الحريق، المخارج، الإنذار، الدفاع المدني</p>
+                  </div>
+                </button>
+             </div>
+          </div>
+
+          {/* Overall Progress Indicator */}
+          {uploadingFiles.length > 0 && (
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-6 rounded-3xl animate-in slide-in-from-top-4 duration-500">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black animate-pulse">
+                    {uploadingFiles.length}
+                  </div>
+                  <span className="text-sm font-black text-indigo-700 dark:text-indigo-300">جاري معالجة الملفات...</span>
+                </div>
+                <button 
+                  onClick={cancelAllUploads}
+                  className="px-4 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black hover:bg-rose-600 transition-all shadow-lg shadow-rose-200 dark:shadow-none active:scale-95"
+                >
+                  إلغاء الكل
+                </button>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-3 rounded-full overflow-hidden">
+                <div 
+                  className="bg-indigo-600 h-full transition-all duration-500 ease-out"
+                  style={{ width: `${overallProgress}%` }}
+                ></div>
+              </div>
+              <div className="mt-2 text-[10px] font-black text-slate-400 text-center uppercase tracking-widest">
+                إجمالي التقدم: {overallProgress}%
+              </div>
+            </div>
+          )}
+
+          <div 
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            className={`transition-all duration-500 rounded-[2.5rem] p-12 text-center relative group cursor-pointer ${
+              isDraggingOver 
+                ? 'bg-indigo-50 dark:bg-indigo-900/20 border-0 marching-ants-border scale-[1.02]' 
+                : 'bg-slate-50/50 dark:bg-slate-800/30 border-4 border-dashed border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
             <input 
               type="file" 
               multiple 
@@ -215,10 +343,20 @@ const ComplianceView: React.FC = () => {
               className="absolute inset-0 opacity-0 cursor-pointer z-10"
               accept="image/*"
             />
-            <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 transition-all duration-500 ${
+              isDraggingOver 
+                ? 'bg-indigo-600 text-white scale-125 rotate-6' 
+                : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 group-hover:scale-110'
+            }`}>
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+              </svg>
             </div>
-            <p className="text-xl font-bold text-slate-700 dark:text-slate-200">اسحب المخططات هنا أو اضغط للاختيار</p>
+            <p className={`text-xl font-bold transition-colors duration-500 ${
+              isDraggingOver ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'
+            }`}>
+              {isDraggingOver ? 'أفلت المخططات الآن' : 'اسحب المخططات هنا أو اضغط للاختيار'}
+            </p>
             <p className="text-slate-400 text-sm mt-2">يدعم صيغ JPG, PNG, WebP</p>
           </div>
 
@@ -227,12 +365,18 @@ const ComplianceView: React.FC = () => {
               {images.map((img, idx) => (
                 <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm group">
                   <img src={`data:${img.mimeType};base64,${img.base64}`} alt={img.name} className="w-full h-full object-cover" />
-                  <button 
-                    onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))}
-                    className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button 
+                      onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))}
+                      className="p-3 bg-rose-500 text-white rounded-2xl shadow-xl transform scale-75 group-hover:scale-100 transition-transform"
+                      title="حذف المخطط"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/60 to-transparent">
+                    <p className="text-[9px] font-bold text-white truncate">{img.name}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -240,8 +384,8 @@ const ComplianceView: React.FC = () => {
 
           <button 
             onClick={handleAnalyze}
-            disabled={loading || images.length === 0}
-            className="w-full py-5 bg-slate-900 dark:bg-indigo-600 text-white rounded-2xl font-black text-xl hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100 dark:shadow-none disabled:opacity-50 flex items-center justify-center gap-3"
+            disabled={loading || images.length === 0 || uploadingFiles.length > 0}
+            className={`w-full py-5 rounded-2xl font-black text-xl transition-all shadow-xl disabled:opacity-50 flex items-center justify-center gap-3 ${auditType === AuditType.SAFETY ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-100' : 'bg-slate-900 dark:bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'} text-white`}
           >
             {loading ? (
               <>
@@ -250,7 +394,7 @@ const ComplianceView: React.FC = () => {
               </>
             ) : (
               <>
-                <span>بدء الفحص الذكي</span>
+                <span>ابدأ الفحص الذكي {auditType === AuditType.SAFETY ? '(الأمن والسلامة)' : ''}</span>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </>
             )}
@@ -268,7 +412,7 @@ const ComplianceView: React.FC = () => {
       {result && (
         <CollapsibleSection
           id="results"
-          title="نتائج التحليل"
+          title={`نتائج تحليل ${auditType === AuditType.SAFETY ? 'الأمن والسلامة' : 'الامتثال العام'}`}
           isOpen={activeSections.includes('results')}
           onToggle={() => toggleSection('results')}
           icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
@@ -372,4 +516,50 @@ const ComplianceView: React.FC = () => {
               </div>
               <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800">
                 <h4 className="text-sm font-black text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                  المراجع النظامية (SBC)
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {result.references.map((ref, i) => (
+                    <span key={i} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-500 dark:text-slate-400 shadow-sm hover:text-indigo-600 transition-colors cursor-help">
+                      {ref}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CollapsibleSection>
+      )}
+
+      {/* Frequently Asked Questions Section */}
+      <CollapsibleSection
+        id="faq"
+        title="الأسئلة الشائعة"
+        description="إجابات سريعة حول عملية فحص الامتثال وإصدار التقارير"
+        isOpen={activeSections.includes('faq')}
+        onToggle={() => toggleSection('faq')}
+        icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[
+            { q: 'ما هي درجة الامتثال؟', a: 'درجة الامتثال هي مؤشر مئوي يوضح مدى مطابقة المخططات المرفوعة لمتطلبات كود البناء السعودي (SBC).' },
+            { q: 'كم تستغرق عملية التحليل؟', a: 'تستغرق العملية عادة ما بين 10 إلى 30 ثانية اعتماداً على عدد المخططات ومدى تعقيد التفاصيل الهندسية.' },
+            { q: 'هل يمكنني تحميل التقرير بصيغة PDF؟', a: 'نعم، بمجرد ظهور النتائج يمكنك استخدام زر "طباعة / PDF" لحفظ نسخة موثقة من التقرير.' },
+            { q: 'هل يدعم النظام أكواد عالمية أخرى؟', a: 'حالياً، بُنيان مصمم خصيصاً للالتزام بكود البناء السعودي واللوائح البلدية المحلية لضمان أعلى دقة للمكاتب الهندسية في المملكة.' }
+          ].map((item, i) => (
+            <div key={i} className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-100 dark:hover:border-indigo-900 transition-all group">
+              <h4 className="text-lg font-black text-slate-900 dark:text-white mb-3 group-hover:text-indigo-600 transition-colors flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                {item.q}
+              </h4>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed pr-4">{item.a}</p>
+            </div>
+          ))}
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+};
+
+export default ComplianceView;
