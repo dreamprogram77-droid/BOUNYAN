@@ -145,6 +145,7 @@ const ComplianceView: React.FC = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [copiedRecIndex, setCopiedRecIndex] = useState<number | null>(null);
+  const [copiedReferenceIndex, setCopiedReferenceIndex] = useState<number | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   
   const [shareConfig, setShareConfig] = useState({
@@ -378,6 +379,17 @@ const ComplianceView: React.FC = () => {
     });
   };
 
+  const handleCopyReference = (text: string, index: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedReferenceIndex(index);
+      setTimeout(() => setCopiedReferenceIndex(null), 1500);
+    });
+  };
+
+  const isLink = (text: string) => {
+    return text.startsWith('http://') || text.startsWith('https://');
+  };
+
   const handleShareReport = () => {
     const reportId = Math.random().toString(36).substring(2, 12).toUpperCase();
     setShareConfig(prev => ({ ...prev, reportId }));
@@ -491,7 +503,7 @@ const ComplianceView: React.FC = () => {
             className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[350px] ${
               isDragging 
                 ? 'bg-gradient-to-br from-indigo-100/40 via-blue-50/40 to-emerald-50/40 dark:from-indigo-900/40 dark:via-blue-900/30 dark:to-slate-900/40 marching-ants-border scale-[1.05] shadow-2xl shadow-indigo-200/50 dark:shadow-indigo-900/50' 
-                : 'bg-slate-50/30 dark:bg-slate-800/20 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700 hover:border-indigo-400'
+                : 'bg-slate-50/30 dark:bg-slate-800/20 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-white dark:hover:bg-slate-700'
             }`}
           >
             <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-30" />
@@ -747,9 +759,53 @@ const ComplianceView: React.FC = () => {
                 icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
               >
                 <div className="flex flex-wrap gap-3">
-                  {result.references.map((ref, idx) => (
-                    <div key={idx} className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-110 hover:-rotate-2 transition-all cursor-pointer">{ref}</div>
-                  ))}
+                  {result.references.map((ref, idx) => {
+                    const isUrl = isLink(ref);
+                    return (
+                      <div key={idx} className="relative group">
+                        {isUrl ? (
+                          <div className="flex items-center gap-1">
+                            <a 
+                              href={ref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-105 transition-all flex items-center gap-2 border border-transparent hover:border-indigo-400"
+                            >
+                              <span className="max-w-[150px] truncate">{ref}</span>
+                              <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </a>
+                            <button 
+                              onClick={() => handleCopyReference(ref, idx)}
+                              className={`p-3 rounded-2xl shadow-xl transition-all hover:scale-110 ${copiedReferenceIndex === idx ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}
+                              title="نسخ الرابط"
+                            >
+                              {copiedReferenceIndex === idx ? (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                              ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => handleCopyReference(ref, idx)}
+                            className={`px-6 py-3 rounded-2xl font-bold text-sm shadow-xl hover:scale-110 hover:-rotate-1 transition-all cursor-pointer flex items-center gap-3 border border-transparent ${
+                              copiedReferenceIndex === idx 
+                                ? 'bg-emerald-600 text-white shadow-emerald-200' 
+                                : 'bg-slate-900 dark:bg-slate-800 text-white hover:border-indigo-400'
+                            }`}
+                          >
+                            {ref}
+                            {copiedReferenceIndex === idx ? (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                            ) : (
+                              <svg className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </CollapsibleSection>
 
