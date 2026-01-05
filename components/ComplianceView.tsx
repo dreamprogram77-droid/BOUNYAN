@@ -318,6 +318,16 @@ const ComplianceView: React.FC = () => {
     }
   };
 
+  const handleScrollToDetails = () => {
+    setOpenSections(prev => ({ ...prev, details: true }));
+    setTimeout(() => {
+      const element = document.getElementById('details-section');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
   const COLORS = ['#4f46e5', '#f1f5f9'];
   const chartData = result ? [{ name: 'امتثال', value: result.score }, { name: 'فجوة', value: 100 - result.score }] : [];
 
@@ -506,6 +516,16 @@ const ComplianceView: React.FC = () => {
                       </div>
                    </div>
                    <p className="text-lg font-medium leading-loose text-slate-600 dark:text-slate-300">{result.executiveSummary}</p>
+                   
+                   <button 
+                     onClick={handleScrollToDetails}
+                     className="flex items-center gap-3 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl text-xs font-black hover:bg-indigo-600 transition-all shadow-xl group/btn-scroll"
+                   >
+                     <span>عرض الملاحظات التفصيلية</span>
+                     <svg className="w-4 h-4 transition-transform group-hover/btn-scroll:translate-y-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
+                     </svg>
+                   </button>
                 </div>
               </div>
             </CollapsibleSection>
