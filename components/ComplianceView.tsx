@@ -368,18 +368,20 @@ const ComplianceView: React.FC = () => {
                 ))}
 
                 {images.map((img, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700">
+                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative hover:shadow-lg transition-all transform hover:scale-[1.02] animate-in fade-in slide-in-from-right-2">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700 border border-slate-50 dark:border-slate-600 shrink-0">
                       <img src={`data:${img.mimeType};base64,${img.base64}`} alt={img.name} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{img.name}</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate" title={img.name}>{img.name}</p>
+                      <p className="text-[9px] text-slate-400 font-mono mt-0.5">{(img.base64.length * 0.75 / 1024).toFixed(1)} KB</p>
                     </div>
                     <button 
                       onClick={() => removeImage(index)}
-                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all group/btn"
+                      title="حذف هذا المخطط"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 transition-transform group-hover/btn:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
@@ -390,7 +392,7 @@ const ComplianceView: React.FC = () => {
               <button
                 onClick={handleAnalyze}
                 disabled={loading || images.length === 0}
-                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-3 mt-8"
+                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-3 mt-8 relative overflow-hidden group/btn"
               >
                 {loading ? (
                   <>
@@ -399,8 +401,9 @@ const ComplianceView: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <span>بدء الفحص الذكي</span>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute inset-0 bg-white/10 translate-y-full group-hover/btn:translate-y-0 transition-transform"></div>
+                    <span className="relative z-10">بدء الفحص الذكي</span>
+                    <svg className="w-5 h-5 relative z-10 transition-transform group-hover/btn:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
                     </svg>
                   </>
@@ -411,7 +414,7 @@ const ComplianceView: React.FC = () => {
         </div>
         
         {error && (
-          <div className="p-6 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-3xl text-rose-700 dark:text-rose-300 font-bold text-sm flex items-center gap-3">
+          <div className="p-6 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-3xl text-rose-700 dark:text-rose-300 font-bold text-sm flex items-center gap-3 animate-in shake">
              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              {error}
           </div>
@@ -486,7 +489,7 @@ const ComplianceView: React.FC = () => {
                     {result.findings.map((finding, idx) => (
                       <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 group hover:border-indigo-400 transition-all relative">
                         <div className="flex items-start justify-between mb-4">
-                           <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-200">
+                           <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-200 transition-transform group-hover:scale-110">
                              {finding.imageIndex !== undefined ? finding.imageIndex + 1 : idx + 1}
                            </span>
                            <button 
@@ -516,7 +519,7 @@ const ComplianceView: React.FC = () => {
               <ul className="space-y-4">
                 {result.recommendations.map((rec, idx) => (
                   <li key={idx} className="flex items-start gap-4 p-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-700 group">
-                    <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center shrink-0 mt-1">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center shrink-0 mt-1 transition-transform group-hover:scale-125">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                     </div>
                     <div className="flex-1 flex items-center justify-between gap-4">
@@ -548,7 +551,7 @@ const ComplianceView: React.FC = () => {
             >
               <div className="flex flex-wrap gap-3">
                 {result.references.map((ref, idx) => (
-                  <div key={idx} className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-105 transition-transform cursor-pointer">{ref}</div>
+                  <div key={idx} className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-110 hover:-rotate-2 transition-all cursor-pointer">{ref}</div>
                 ))}
               </div>
             </CollapsibleSection>
@@ -568,9 +571,9 @@ const ComplianceView: React.FC = () => {
                   { q: "هل يشمل التقرير بنود كود الطاقة؟", a: "نعم، يقوم الذكاء الاصطناعي بمراجعة قيم العزل الحراري (U-values) ونوعية الزجاج المستخدم لضمان كفاءة استهلاك الطاقة." },
                   { q: "كيف يتم تحديد درجة الامتثال النهائية؟", a: "يتم احتساب الدرجة بناءً على وزن كل بند في الكود؛ البنود الحرجة المتعلقة بالسلامة لها وزن أكبر وتؤثر بشكل مباشر على حالة الامتثال." }
                 ].map((item, i) => (
-                  <div key={i} className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-100 dark:border-slate-800 transition-all hover:border-indigo-100">
-                    <h4 className="text-lg font-black text-slate-900 dark:text-white mb-3 flex items-center gap-3">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                  <div key={i} className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-100 dark:border-slate-800 transition-all hover:border-indigo-100 group/faq">
+                    <h4 className="text-lg font-black text-slate-900 dark:text-white mb-3 flex items-center gap-3 transition-transform group-hover/faq:translate-x-[-8px]">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
                       {item.q}
                     </h4>
                     <p className="text-sm font-bold text-slate-500 dark:text-slate-400 leading-relaxed pr-5">
@@ -592,7 +595,7 @@ const ComplianceView: React.FC = () => {
            
            <form onSubmit={addTask} className="flex gap-4 mb-8">
              <input type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} placeholder="أضف مهمة تدقيق جديدة..." className="flex-1 px-6 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 focus:border-indigo-500 transition-all font-medium dark:text-white" />
-             <button type="submit" className="bg-indigo-600 text-white w-14 h-14 rounded-2xl flex items-center justify-center hover:bg-indigo-700 shadow-lg shadow-indigo-100 dark:shadow-none transition-all">
+             <button type="submit" className="bg-indigo-600 text-white w-14 h-14 rounded-2xl flex items-center justify-center hover:bg-indigo-700 shadow-lg shadow-indigo-100 dark:shadow-none transition-all active:scale-90">
                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
              </button>
            </form>
@@ -636,4 +639,19 @@ const ComplianceView: React.FC = () => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 w-full max-w-sm p-10 rounded-[3rem] text-center shadow-2xl border border-slate-100 dark:border-slate-800">
             <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">حذف جميع المخططات؟</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8 text-center px-4">لا يمكن التراجع عن هذا الإجراء، سيتم مسح كافة البيانات المرفوعة.</p>
+            <div className="flex gap-4">
+              <button onClick={() => { setImages([]); setShowConfirmClear(false); setResult(null); }} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm hover:bg-rose-700 transition-all">تأكيد الحذف</button>
+              <button onClick={() => setShowConfirmClear(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-sm transition-all">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ComplianceView;
