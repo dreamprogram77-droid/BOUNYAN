@@ -11,8 +11,6 @@ const SBC_SYSTEM_INSTRUCTION = `
 2. المتطلبات المعمارية والإنشائية.
 3. كفاءة الطاقة.
 4. الوصول الشامل لذوي الإعاقة.
-
-عند ذكر ملاحظات فنية محددة، حاول ربطها برقم المخطط المرفوع (0 للمخطط الأول، 1 للثاني، وهكذا).
 `;
 
 export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisResult> => {
@@ -36,19 +34,19 @@ export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisRe
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          status: { type: Type.STRING, description: "compliant, warning, or non-compliant" },
-          score: { type: Type.NUMBER, description: "Overall compliance score 0-100" },
-          executiveSummary: { type: Type.STRING, description: "A high-level overview of the compliance status and key findings" },
-          details: { type: Type.STRING, description: "Detailed analysis of findings" },
+          status: { type: Type.STRING },
+          score: { type: Type.NUMBER },
+          executiveSummary: { type: Type.STRING },
+          details: { type: Type.STRING },
           recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
-          references: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific SBC sections referenced" },
+          references: { type: Type.ARRAY, items: { type: Type.STRING } },
           findings: {
             type: Type.ARRAY,
             items: {
               type: Type.OBJECT,
               properties: {
-                text: { type: Type.STRING, description: "Specific observation text" },
-                imageIndex: { type: Type.INTEGER, description: "The index of the related image (0 to N)" }
+                text: { type: Type.STRING },
+                imageIndex: { type: Type.INTEGER }
               }
             }
           }
@@ -58,12 +56,7 @@ export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisRe
     }
   });
 
-  try {
-    return JSON.parse(response.text || "{}") as AnalysisResult;
-  } catch (error) {
-    console.error("Failed to parse compliance response", error);
-    throw new Error("حدث خطأ أثناء تحليل البيانات.");
-  }
+  return JSON.parse(response.text || "{}") as AnalysisResult;
 };
 
 export const searchSaudiRegulations = async (query: string) => {
@@ -77,6 +70,30 @@ export const searchSaudiRegulations = async (query: string) => {
     }
   });
   
+  return {
+    text: response.text,
+    sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
+  };
+};
+
+export const getSiteRegulations = async (lat: number, lng: number) => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: "ما هي اشتراطات البناء البلدية والارتدادات المسموحة والارتفاعات في هذا الموقع الجغرافي حسب الأنظمة السعودية؟",
+    config: {
+      tools: [{ googleMaps: {} }],
+      toolConfig: {
+        retrievalConfig: {
+          latLng: {
+            latitude: lat,
+            longitude: lng
+          }
+        }
+      }
+    },
+  });
+
   return {
     text: response.text,
     sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []

@@ -30,6 +30,7 @@ const Navbar: React.FC<NavbarProps> = ({
 
   const toolsLinks = [
     { id: AppMode.COMPLIANCE, label: 'فحص الامتثال', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+    { id: AppMode.SITE_EXPLORER, label: 'مستكشف الموقع', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z' },
     { id: AppMode.SEARCH, label: 'البحث التنظيمي', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
     { id: AppMode.IMAGE_EDITOR, label: 'محرر المخططات', icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z' },
     { id: AppMode.VOICE_ASSISTANT, label: 'المساعد الصوتي', icon: 'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z' },
@@ -48,7 +49,6 @@ const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between h-20 items-center">
           
-          {/* Logo Section */}
           <div className="flex items-center gap-10">
             <button 
               onClick={() => setMode(AppMode.HOME)} 
@@ -60,7 +60,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <div className="absolute -inset-1 bg-indigo-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </div>
               <div className="flex flex-col items-start leading-none">
                 <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">Bunyan</span>
@@ -68,7 +67,6 @@ const Navbar: React.FC<NavbarProps> = ({
               </div>
             </button>
 
-            {/* Desktop Public Nav */}
             <div className="hidden xl:flex items-center bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
               {publicLinks.map((link) => (
                 <button
@@ -98,7 +96,6 @@ const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
           
-          {/* Main Tools Nav */}
           <div className="hidden lg:flex items-center gap-1">
             {toolsLinks.map((link) => (
               <button
@@ -121,9 +118,7 @@ const Navbar: React.FC<NavbarProps> = ({
             ))}
           </div>
 
-          {/* User & Theme Actions */}
           <div className="flex items-center gap-4">
-            {/* Font Size Selector */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl gap-0.5">
               {fontSizes.map((fs) => (
                 <button
@@ -138,7 +133,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm font-black' 
                     : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
                   }`}
-                  title={`حجم الخط: ${fs.id === 'small' ? 'صغير' : fs.id === 'large' ? 'كبير' : 'افتراضي'}`}
                 >
                   {fs.label}
                 </button>
@@ -148,7 +142,6 @@ const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onToggleTheme}
               className="relative p-2.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 group"
-              title={theme === 'light' ? 'الوضع الليلي' : 'الوضع النهاري'}
             >
               <div className="relative z-10">
                 {theme === 'light' ? (
@@ -157,7 +150,6 @@ const Navbar: React.FC<NavbarProps> = ({
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 16.95l.707.707M7.05 7.05l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>
                 )}
               </div>
-              <div className="absolute inset-0 bg-indigo-500/10 rounded-xl scale-0 group-hover:scale-100 transition-transform"></div>
             </button>
 
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
@@ -168,17 +160,12 @@ const Navbar: React.FC<NavbarProps> = ({
                 className="relative group overflow-hidden bg-slate-900 dark:bg-indigo-600 text-white px-7 py-2.5 rounded-xl text-[11px] font-black hover:shadow-2xl hover:shadow-indigo-500/20 transition-all active:scale-95"
               >
                 <span className="relative z-10">دخول / تسجيل</span>
-                <div className="absolute inset-0 bg-indigo-500 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
               </button>
             ) : (
               <div className="flex items-center gap-4">
-                <div className="hidden sm:flex flex-col items-end leading-tight">
-                  <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider">Account Active</span>
-                  <button onClick={onLogout} className="text-[9px] font-bold text-rose-500 hover:text-rose-600 hover:underline">تسجيل الخروج</button>
-                </div>
                 <button 
                   onClick={() => setMode(AppMode.CLIENT_DASHBOARD)}
-                  className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black shadow-sm hover:scale-105 transition-transform"
+                  className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black shadow-sm"
                 >
                   أ
                 </button>
@@ -186,11 +173,6 @@ const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
         </div>
-      </div>
-      
-      {/* Scroll Progress Bar (Visual Only) */}
-      <div className="h-[1px] w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-        <div className="h-full bg-indigo-500 dark:bg-indigo-400 w-1/3 animate-[shimmer_2s_infinite_linear]"></div>
       </div>
     </nav>
   );

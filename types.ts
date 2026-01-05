@@ -8,7 +8,8 @@ export enum AppMode {
   VOICE_ASSISTANT = 'voice',
   SEARCH = 'search',
   IMAGE_EDITOR = 'image-editor',
-  CLIENT_DASHBOARD = 'dashboard'
+  CLIENT_DASHBOARD = 'dashboard',
+  SITE_EXPLORER = 'site-explorer'
 }
 
 export interface DetailedFinding {
