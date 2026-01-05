@@ -19,6 +19,9 @@ const App: React.FC = () => {
     return (savedMode as AppMode) || AppMode.HOME;
   });
 
+  // حالة التبويب النشط داخل لوحة التحكم لتمكين الوصول السريع من Navbar
+  const [activeDashboardTab, setActiveDashboardTab] = useState<string>('projects');
+
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('bunyan_is_logged_in') === 'true';
   });
@@ -58,6 +61,7 @@ const App: React.FC = () => {
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);
     setMode(AppMode.CLIENT_DASHBOARD); 
+    localStorage.setItem('bunyan_is_logged_in', 'true');
   };
 
   const handleLogout = () => {
@@ -66,11 +70,14 @@ const App: React.FC = () => {
     localStorage.removeItem('bunyan_is_logged_in');
   };
 
-  const protectedNavigate = (targetMode: AppMode) => {
+  const protectedNavigate = (targetMode: AppMode, tab?: string) => {
     if (!isLoggedIn && !isDevMode) {
       setMode(AppMode.LOGIN);
     } else {
       setMode(targetMode);
+      if (tab) {
+        setActiveDashboardTab(tab);
+      }
     }
   };
 
@@ -89,7 +96,12 @@ const App: React.FC = () => {
       case AppMode.VOICE_ASSISTANT: return <VoiceAssistant />;
       case AppMode.SEARCH: return <SearchView />;
       case AppMode.IMAGE_EDITOR: return <ImageEditor />;
-      case AppMode.CLIENT_DASHBOARD: return <ClientDashboard />;
+      case AppMode.CLIENT_DASHBOARD: return (
+        <ClientDashboard 
+          activeTab={activeDashboardTab as any} 
+          onTabChange={setActiveDashboardTab} 
+        />
+      );
       case AppMode.SITE_EXPLORER: return <SiteExplorerView />;
       default: return <HomeView onStart={(m) => protectedNavigate(m)} />;
     }
@@ -101,13 +113,14 @@ const App: React.FC = () => {
     <div className={`min-h-screen flex flex-col font-['Amiri'] transition-all duration-300 ${isDashboard ? 'bg-white dark:bg-slate-950' : 'dark:bg-slate-950 dark:text-slate-100'} app-font-${fontSize}`} dir="rtl">
       <Navbar 
         currentMode={mode} 
-        setMode={(m) => protectedNavigate(m)} 
+        setMode={protectedNavigate} 
         isLoggedIn={isLoggedIn || isDevMode}
         onLogout={handleLogout}
         theme={theme}
         onToggleTheme={toggleTheme}
         fontSize={fontSize}
         onChangeFontSize={setFontSize}
+        activeDashboardTab={activeDashboardTab}
       />
       
       <main className={`flex-grow container mx-auto px-6 lg:px-8 max-w-7xl pt-8`}>

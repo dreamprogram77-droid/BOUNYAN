@@ -4,13 +4,14 @@ import { AppMode } from '../types';
 
 interface NavbarProps {
   currentMode: AppMode;
-  setMode: (mode: AppMode) => void;
+  setMode: (mode: AppMode, tab?: string) => void;
   isLoggedIn: boolean;
   onLogout: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   fontSize: 'small' | 'default' | 'large';
   onChangeFontSize: (size: 'small' | 'default' | 'large') => void;
+  activeDashboardTab?: string;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ 
@@ -21,11 +22,20 @@ const Navbar: React.FC<NavbarProps> = ({
   theme, 
   onToggleTheme,
   fontSize,
-  onChangeFontSize
+  onChangeFontSize,
+  activeDashboardTab
 }) => {
   const publicLinks = [
     { id: AppMode.HOME, label: 'الرئيسية' },
     { id: AppMode.PRICING, label: 'الأسعار' },
+  ];
+
+  // روابط الوصول السريع للوحة التحكم
+  const dashboardShortcuts = [
+    { id: 'compliance', label: 'فحص الامتثال', mode: AppMode.CLIENT_DASHBOARD },
+    { id: 'search', label: 'البحث التنظيمي', mode: AppMode.CLIENT_DASHBOARD },
+    { id: 'editor', label: 'محرر المخططات', mode: AppMode.CLIENT_DASHBOARD },
+    { id: 'voice', label: 'المساعد الصوتي', mode: AppMode.CLIENT_DASHBOARD },
   ];
 
   const toolsLinks = [
@@ -37,6 +47,7 @@ const Navbar: React.FC<NavbarProps> = ({
   ];
 
   const isActive = (id: AppMode) => currentMode === id;
+  const isTabActive = (tab: string) => currentMode === AppMode.CLIENT_DASHBOARD && activeDashboardTab === tab;
 
   const fontSizes: Array<{id: 'small' | 'default' | 'large', label: string}> = [
     { id: 'small', label: 'A' },
@@ -49,7 +60,7 @@ const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between h-20 items-center">
           
-          <div className="flex items-center gap-10">
+          <div className="flex items-center gap-6">
             <button 
               onClick={() => setMode(AppMode.HOME)} 
               className="flex items-center gap-3.5 group relative"
@@ -61,13 +72,13 @@ const Navbar: React.FC<NavbarProps> = ({
                   </svg>
                 </div>
               </div>
-              <div className="flex flex-col items-start leading-none">
+              <div className="flex flex-col items-start leading-none hidden sm:flex">
                 <span className="text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">Bunyan</span>
                 <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 tracking-[0.3em] uppercase mt-0.5">Saudi Engineering</span>
               </div>
             </button>
 
-            <div className="hidden xl:flex items-center bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+            <div className="hidden lg:flex items-center bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
               {publicLinks.map((link) => (
                 <button
                   key={link.id}
@@ -81,22 +92,40 @@ const Navbar: React.FC<NavbarProps> = ({
                   {link.label}
                 </button>
               ))}
+
               {isLoggedIn && (
-                <button
-                  onClick={() => setMode(AppMode.CLIENT_DASHBOARD)}
-                  className={`px-5 py-2 text-[11px] font-black transition-all rounded-xl uppercase tracking-widest ${
-                    isActive(AppMode.CLIENT_DASHBOARD) 
-                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                  }`}
-                >
-                  لوحة التحكم
-                </button>
+                <>
+                  <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+                  {dashboardShortcuts.map((link) => (
+                    <button
+                      key={link.id}
+                      onClick={() => setMode(link.mode, link.id)}
+                      className={`px-4 py-2 text-[10px] font-black transition-all rounded-xl uppercase tracking-widest whitespace-nowrap ${
+                        isTabActive(link.id)
+                        ? 'bg-indigo-600 text-white shadow-md' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400'
+                      }`}
+                    >
+                      {link.label}
+                    </button>
+                  ))}
+                  <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+                  <button
+                    onClick={() => setMode(AppMode.CLIENT_DASHBOARD, 'projects')}
+                    className={`px-5 py-2 text-[11px] font-black transition-all rounded-xl uppercase tracking-widest ${
+                      isActive(AppMode.CLIENT_DASHBOARD) && activeDashboardTab === 'projects'
+                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                    }`}
+                  >
+                    لوحة التحكم
+                  </button>
+                </>
               )}
             </div>
           </div>
           
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden 2xl:flex items-center gap-1">
             {toolsLinks.map((link) => (
               <button
                 key={link.id}
@@ -164,10 +193,17 @@ const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <div className="flex items-center gap-4">
                 <button 
-                  onClick={() => setMode(AppMode.CLIENT_DASHBOARD)}
+                  onClick={() => setMode(AppMode.CLIENT_DASHBOARD, 'projects')}
                   className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black shadow-sm"
                 >
                   أ
+                </button>
+                <button
+                  onClick={onLogout}
+                  className="text-slate-400 hover:text-rose-500 transition-colors p-2"
+                  title="تسجيل الخروج"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                 </button>
               </div>
             )}
