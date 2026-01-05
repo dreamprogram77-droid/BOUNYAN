@@ -28,7 +28,12 @@ const ImageEditor: React.FC = () => {
       setError(null);
       const reader = new FileReader();
       reader.onload = () => {
-        setImage({ base64: (reader.result as string).split(',')[1], mimeType: file.type });
+        // Adding the missing 'name' property to comply with the ImageData interface.
+        setImage({ 
+          base64: (reader.result as string).split(',')[1], 
+          mimeType: file.type,
+          name: file.name 
+        });
         setEditedUrl(null);
         resetZoom();
       };

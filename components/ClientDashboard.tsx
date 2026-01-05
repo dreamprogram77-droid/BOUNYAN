@@ -6,7 +6,7 @@ import ImageEditor from './ImageEditor';
 import VoiceAssistant from './VoiceAssistant';
 import SiteExplorerView from './SiteExplorerView';
 import { Order } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, CartesianGrid } from 'recharts';
 
 type DashboardTab = 'projects' | 'compliance' | 'search' | 'editor' | 'voice' | 'orders' | 'invoices' | 'site-explorer' | 'profile';
 
@@ -21,7 +21,9 @@ interface ProjectData {
 
 const ClientDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<DashboardTab>('projects');
+  const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
+  
   const [projectsList, setProjectsList] = useState<ProjectData[]>([
     { 
       name: 'برج الملقا السكني', 
@@ -47,6 +49,16 @@ const ClientDashboard: React.FC = () => {
         { month: 'مايو', score: 60 },
       ]
     },
+    { 
+      name: 'فيلا حي النرجس الحديثة', 
+      ref: 'BUN-2024-003', 
+      progress: 10, 
+      status: 'مرحلة التخطيط', 
+      risk: 'مرتفع',
+      complianceHistory: [
+        { month: 'مايو', score: 20 },
+      ]
+    },
   ]);
 
   const [ordersList] = useState<Order[]>([
@@ -69,17 +81,13 @@ const ClientDashboard: React.FC = () => {
     { id: 'voice', label: 'المساعد الصوتي', icon: 'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z' },
   ];
 
-  const handleAddProject = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProject.name) return;
-    const project: ProjectData = {
-      ...newProject,
-      ref: `BUN-2024-${String(projectsList.length + 1).padStart(3, '0')}`,
-      risk: 'منخفض',
-      complianceHistory: [{ month: 'مايو', score: 0 }]
-    };
-    setProjectsList([project, ...projectsList]);
-    setIsAddProjectModalOpen(false);
+  const getRiskColor = (risk: string) => {
+    switch (risk) {
+      case 'منخفض': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'متوسط': return 'bg-amber-50 text-amber-600 border-amber-100';
+      case 'مرتفع': return 'bg-rose-50 text-rose-600 border-rose-100';
+      default: return 'bg-slate-50 text-slate-600 border-slate-100';
+    }
   };
 
   const renderContent = () => {
@@ -94,13 +102,22 @@ const ClientDashboard: React.FC = () => {
                     <ResponsiveContainer width="100%" height="100%">
                        <BarChart data={projectsList[0].complianceHistory}>
                           <XAxis dataKey="month" hide />
-                          <Tooltip />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: '#0f172a', 
+                              borderRadius: '12px', 
+                              border: 'none', 
+                              color: '#fff',
+                              fontSize: '12px'
+                            }}
+                          />
                           <Bar dataKey="score" fill="#4f46e5" radius={[6, 6, 0, 0]} />
                        </BarChart>
                     </ResponsiveContainer>
                  </div>
               </div>
-              <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-center">
+              <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-center relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-110 transition-transform duration-1000"></div>
                  <div className="text-[10px] font-black opacity-50 uppercase tracking-[0.3em] mb-2">Total Office Score</div>
                  <div className="text-6xl font-black mb-4 tracking-tighter">88.4</div>
                  <p className="text-sm opacity-70 font-bold leading-relaxed">أداء مكتبك الهندسي متفوق بنسبة 12% عن متوسط المكاتب في الرياض هذا الشهر.</p>
@@ -109,12 +126,19 @@ const ClientDashboard: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {projectsList.map((p, i) => (
-                <div key={i} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-8 rounded-3xl hover:border-indigo-200 dark:hover:border-indigo-900 transition-all group shadow-sm">
+                <button 
+                  key={i} 
+                  onClick={() => setSelectedProject(p)}
+                  className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-8 rounded-3xl hover:border-indigo-200 dark:hover:border-indigo-900 transition-all group shadow-sm text-right flex flex-col items-stretch"
+                >
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{p.ref}</div>
                       <h4 className="text-lg font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{p.name}</h4>
                     </div>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black border uppercase tracking-wider ${getRiskColor(p.risk)}`}>
+                       مستوى المخاطر: {p.risk}
+                    </span>
                   </div>
                   <div className="space-y-4">
                     <div className="flex justify-between items-end text-[10px] font-black text-slate-400">
@@ -125,9 +149,128 @@ const ClientDashboard: React.FC = () => {
                       <div className="bg-indigo-600 h-full rounded-full transition-all duration-1000" style={{ width: `${p.progress}%` }}></div>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
+
+            {/* Project Detail Modal */}
+            {selectedProject && (
+              <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden animate-in zoom-in-95 duration-300">
+                  <button 
+                    onClick={() => setSelectedProject(null)}
+                    className="absolute top-8 left-8 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 transition-all z-10"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+
+                  <div className="p-10 md:p-14">
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-12">
+                      <div>
+                        <div className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mb-3">تفاصيل سجل الامتثال</div>
+                        <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-2">{selectedProject.name}</h2>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm font-bold text-slate-400">{selectedProject.ref}</span>
+                          <span className={`px-4 py-1 rounded-full text-[10px] font-black border uppercase tracking-widest ${getRiskColor(selectedProject.risk)}`}>
+                             مخاطر {selectedProject.risk}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 text-center min-w-[160px]">
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">آخر درجة امتثال</div>
+                        <div className="text-5xl font-black text-indigo-600">
+                          {selectedProject.complianceHistory[selectedProject.complianceHistory.length - 1].score}%
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                      <div className="lg:col-span-8">
+                        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 p-8 shadow-sm h-full">
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white mb-8 flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+                             مخطط الامتثال التاريخي
+                          </h3>
+                          <div className="h-72">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={selectedProject.complianceHistory}>
+                                <defs>
+                                  <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis 
+                                  dataKey="month" 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} 
+                                />
+                                <YAxis 
+                                  domain={[0, 100]} 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }} 
+                                />
+                                <Tooltip 
+                                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none', color: '#fff', fontSize: '12px' }}
+                                />
+                                <Area 
+                                  type="monotone" 
+                                  dataKey="score" 
+                                  stroke="#4f46e5" 
+                                  strokeWidth={4} 
+                                  fillOpacity={1} 
+                                  fill="url(#scoreGrad)" 
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-slate-900 p-8 rounded-[2rem] text-white">
+                           <h4 className="text-[10px] font-black opacity-50 uppercase tracking-widest mb-6">تقييم المخاطر</h4>
+                           <p className="text-sm font-bold leading-loose">
+                             بناءً على تاريخ مراجعات "{selectedProject.name}"، يظهر استقرار في تطبيق معايير SBC مع ملاحظة بعض التأخير في البنود الإنشائية.
+                           </p>
+                           <div className="mt-8 pt-8 border-t border-white/10 flex justify-between items-center">
+                              <span className="text-[10px] opacity-40">الحالة العامة</span>
+                              <span className="text-xs font-black text-indigo-400">{selectedProject.status}</span>
+                           </div>
+                        </div>
+                        
+                        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-8 rounded-[2rem] shadow-sm">
+                           <div className="flex justify-between items-center mb-4">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">تغطية الأكواد</span>
+                              <span className="text-xs font-black text-slate-900 dark:text-white">92%</span>
+                           </div>
+                           <div className="w-full bg-slate-50 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                              <div className="bg-emerald-500 h-full w-[92%] rounded-full"></div>
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-12 flex justify-end gap-4">
+                      <button 
+                        onClick={() => setSelectedProject(null)}
+                        className="px-10 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl text-sm font-black hover:bg-slate-200 transition-all active:scale-95"
+                      >
+                        إغلاق
+                      </button>
+                      <button 
+                        className="px-10 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black hover:bg-indigo-700 shadow-xl shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+                      >
+                        تحميل تقرير الامتثال الشامل
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       case 'compliance': return <ComplianceView />;

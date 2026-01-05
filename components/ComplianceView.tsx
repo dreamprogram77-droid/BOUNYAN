@@ -274,7 +274,7 @@ const ComplianceView: React.FC = () => {
     setError(null);
     const validFiles = Array.from(files).filter(file => {
       if (!ALLOWED_TYPES.includes(file.type)) { 
-        setError(`نوع ملف غير صالح: المستند "${file.name}" غير مدعوم.`); 
+        setError(`نوع ملف غير صالح: المستند "${file.name}" غير مدعوم. يرجى استخدام JPG أو PNG أو WebP.`); 
         return false; 
       }
       if (file.size > MAX_FILE_SIZE) { 
@@ -535,10 +535,13 @@ const ComplianceView: React.FC = () => {
               <p className={`text-sm font-bold transition-all duration-300 ${isDragging ? 'text-indigo-500/70 dark:text-indigo-300/70 opacity-100' : 'text-slate-400 opacity-70'}`}>
                 {isDragging ? 'التطبيق جاهز لاستقبال ملفاتك' : 'اسحب وأفلت أو انقر للاختيار'}
               </p>
+              <div className={`mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all duration-500 ${isDragging ? 'bg-indigo-600 text-white border-indigo-400 scale-110' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'}`}>
+                 JPG, PNG, WebP Supported
+              </div>
             </div>
 
             {isDragging && (
-              <div className="absolute inset-0 border-[10px] border-indigo-500/10 pointer-events-none rounded-[2.5rem]"></div>
+              <div className="absolute inset-0 border-[10px] border-indigo-500/10 pointer-events-none rounded-[2.5rem] animate-pulse"></div>
             )}
           </div>
 
