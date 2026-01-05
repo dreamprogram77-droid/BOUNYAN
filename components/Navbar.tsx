@@ -9,9 +9,20 @@ interface NavbarProps {
   onLogout: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  fontSize: 'small' | 'default' | 'large';
+  onChangeFontSize: (size: 'small' | 'default' | 'large') => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentMode, setMode, isLoggedIn, onLogout, theme, onToggleTheme }) => {
+const Navbar: React.FC<NavbarProps> = ({ 
+  currentMode, 
+  setMode, 
+  isLoggedIn, 
+  onLogout, 
+  theme, 
+  onToggleTheme,
+  fontSize,
+  onChangeFontSize
+}) => {
   const publicLinks = [
     { id: AppMode.HOME, label: 'الرئيسية' },
     { id: AppMode.PRICING, label: 'الأسعار' },
@@ -25,6 +36,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, setMode, isLoggedIn, onLog
   ];
 
   const isActive = (id: AppMode) => currentMode === id;
+
+  const fontSizes: Array<{id: 'small' | 'default' | 'large', label: string}> = [
+    { id: 'small', label: 'A' },
+    { id: 'default', label: 'A' },
+    { id: 'large', label: 'A' },
+  ];
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-[100] transition-all duration-500 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
@@ -106,6 +123,28 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, setMode, isLoggedIn, onLog
 
           {/* User & Theme Actions */}
           <div className="flex items-center gap-4">
+            {/* Font Size Selector */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl gap-0.5">
+              {fontSizes.map((fs) => (
+                <button
+                  key={fs.id}
+                  onClick={() => onChangeFontSize(fs.id)}
+                  className={`flex items-center justify-center rounded-lg transition-all ${
+                    fs.id === 'small' ? 'w-6 h-6 text-[9px]' :
+                    fs.id === 'default' ? 'w-7 h-7 text-[11px]' :
+                    'w-8 h-8 text-[13px]'
+                  } ${
+                    fontSize === fs.id 
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm font-black' 
+                    : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  }`}
+                  title={`حجم الخط: ${fs.id === 'small' ? 'صغير' : fs.id === 'large' ? 'كبير' : 'افتراضي'}`}
+                >
+                  {fs.label}
+                </button>
+              ))}
+            </div>
+
             <button
               onClick={onToggleTheme}
               className="relative p-2.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 group"

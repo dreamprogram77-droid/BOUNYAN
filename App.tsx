@@ -32,6 +32,12 @@ const App: React.FC = () => {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
+  const [fontSize, setFontSize] = useState<'small' | 'default' | 'large'>(() => {
+    const savedSize = localStorage.getItem('bunyan_font_size');
+    if (savedSize === 'small' || savedSize === 'default' || savedSize === 'large') return savedSize;
+    return 'default';
+  });
+
   useEffect(() => {
     localStorage.setItem('bunyan_app_mode', mode);
     window.scrollTo(0, 0);
@@ -53,6 +59,10 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('bunyan_font_size', fontSize);
+  }, [fontSize]);
 
   const toggleTheme = () => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
@@ -111,7 +121,10 @@ const App: React.FC = () => {
   const isDashboard = mode === AppMode.CLIENT_DASHBOARD;
 
   return (
-    <div className={`min-h-screen flex flex-col font-['Amiri'] transition-colors duration-300 ${isDashboard ? 'bg-white dark:bg-slate-950' : 'dark:bg-slate-950 dark:text-slate-100'}`} dir="rtl">
+    <div 
+      className={`min-h-screen flex flex-col font-['Amiri'] transition-all duration-300 ${isDashboard ? 'bg-white dark:bg-slate-950' : 'dark:bg-slate-950 dark:text-slate-100'} app-font-${fontSize}`} 
+      dir="rtl"
+    >
       <Navbar 
         currentMode={mode} 
         setMode={(m) => {
@@ -126,6 +139,8 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         theme={theme}
         onToggleTheme={toggleTheme}
+        fontSize={fontSize}
+        onChangeFontSize={setFontSize}
       />
       
       <main className={`flex-grow container mx-auto px-6 lg:px-8 max-w-7xl ${isDashboard ? 'py-8' : ''}`}>
