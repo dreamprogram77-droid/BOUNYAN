@@ -543,17 +543,41 @@ const ComplianceView: React.FC = () => {
               </div>
 
               <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                {uploadingFiles.map((file, idx) => (
+                  <div 
+                    key={file.id} 
+                    style={{ animationDelay: `${idx * 50}ms` }}
+                    className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 opacity-60 animate-in fade-in slide-in-from-right-4 duration-300 fill-mode-both"
+                  >
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 truncate w-3/4">{file.name}</span>
+                      <span className="text-[10px] font-black text-indigo-600">{file.progress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${file.progress}%` }}></div>
+                    </div>
+                  </div>
+                ))}
+
                 {images.map((img, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative hover:shadow-lg transition-all transform hover:scale-[1.02]">
+                  <div 
+                    key={index} 
+                    style={{ animationDelay: `${(uploadingFiles.length + index) * 50}ms` }}
+                    className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-900 transition-all transform hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-300 fill-mode-both"
+                  >
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700 border border-slate-50 dark:border-slate-600 shrink-0">
-                      <img src={`data:${img.mimeType};base64,${img.base64}`} alt={img.name} className="w-full h-full object-cover" />
+                      <img src={`data:${img.mimeType};base64,${img.base64}`} alt={img.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{img.name}</p>
                       <p className="text-[9px] text-slate-400 font-mono mt-0.5">{(img.base64.length * 0.75 / 1024).toFixed(1)} KB</p>
                     </div>
-                    <button onClick={() => removeImage(index)} className="p-2 text-slate-400 hover:text-rose-500 rounded-lg transition-all">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <button 
+                      onClick={() => removeImage(index)} 
+                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all group/del"
+                      title="حذف المخطط"
+                    >
+                      <svg className="w-4 h-4 transition-transform group-hover/del:rotate-90 group-hover/del:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
                 ))}
@@ -1012,110 +1036,4 @@ const ComplianceView: React.FC = () => {
                     value={shareConfig.password}
                     onChange={(e) => setShareConfig({ ...shareConfig, password: e.target.value })}
                     placeholder="أدخل كلمة مرور قوية..."
-                    className="w-full px-5 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900/20 font-bold text-xs"
-                   />
-                )}
-              </div>
-            </div>
-
-            <div className="md:w-72 flex flex-col justify-end">
-              <div className="bg-slate-50 dark:bg-slate-800/80 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 mb-8 flex-grow">
-                <div className="flex flex-col h-full">
-                  <div className="mb-6">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">معاينة رابط المشاركة:</p>
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 mb-4 overflow-hidden shadow-inner">
-                      <p className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 break-all leading-relaxed">{generatedLink}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-auto space-y-3">
-                    <button 
-                      onClick={copyShareLink}
-                      className={`w-full py-4 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-3 ${
-                        isLinkCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none'
-                      }`}
-                    >
-                      {isLinkCopied ? (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                          تم النسخ بنجاح!
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                          نسخ الرابط المخصص
-                        </>
-                      )}
-                    </button>
-                    <button className="w-full py-4 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-black border border-slate-100 dark:border-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-3 shadow-sm">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                      إرسال عبر البريد
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowShareModal(false)}
-                className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl font-black text-xs hover:bg-slate-200 transition-colors"
-              >
-                تجاهل التغييرات
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Finding Modal */}
-      {editingFindingIndex !== null && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-xl p-8 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800">
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-6">تعديل الملاحظة الفنية</h3>
-            <textarea 
-              value={tempFindingText}
-              onChange={(e) => setTempFindingText(e.target.value)}
-              className="w-full h-40 p-6 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 transition-all font-medium text-lg leading-relaxed dark:text-white mb-8"
-            />
-            <div className="flex gap-4">
-              <button onClick={saveFindingEdit} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">حفظ التعديلات</button>
-              <button onClick={() => setEditingFindingIndex(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm">إلغاء</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Enhanced Confirm Clear Modal */}
-      {showConfirmClear && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 w-full max-md:max-w-md p-12 rounded-[3.5rem] text-center shadow-2xl border border-slate-100 dark:border-slate-800 transform scale-100 animate-in zoom-in-95 duration-300">
-            <div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
-              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-            </div>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">تصفير جميع البيانات؟</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-base font-medium mb-10 text-center px-4 leading-relaxed">
-              سيتم حذف كافة المخططات المرفوعة وإيقاف عمليات الرفع الجارية ومسح نتائج التحليل الحالية. لا يمكن التراجع عن هذا الإجراء.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button 
-                onClick={clearAllData} 
-                className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm hover:bg-rose-700 transition-all shadow-xl shadow-rose-200 dark:shadow-none active:scale-95"
-              >
-                تأكيد المسح الشامل
-              </button>
-              <button 
-                onClick={() => setShowConfirmClear(false)} 
-                className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-sm transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95"
-              >
-                إلغاء التراجع
-              </button>
-            </div>
-            <div className="mt-6 flex items-center justify-center gap-2 text-[10px] font-black text-slate-300 uppercase tracking-widest">
-               <span className="px-2 py-0.5 rounded border border-slate-100 dark:border-slate-800">ESC to cancel</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default ComplianceView;
+                    className="w-full px-5 py-3 bg-white dark:bg-slate-90
