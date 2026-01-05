@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import Navbar from './components/Navbar';
 import HomeView from './components/HomeView';
 import PricingView from './components/PricingView';
@@ -197,6 +198,8 @@ const App: React.FC = () => {
           </div>
         </footer>
       )}
+
+      <Analytics />
     </div>
   );
 };
