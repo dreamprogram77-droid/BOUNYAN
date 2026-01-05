@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { analyzeCompliance } from '../services/geminiService';
 import { AnalysisResult, ImageData, DetailedFinding } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 interface UploadingFile {
   id: string;
@@ -42,7 +42,7 @@ const CollapsibleSection: React.FC<{
 
   const handleToggle = () => {
     setIsClicked(true);
-    setTimeout(() => setIsClicked(false), 800);
+    setTimeout(() => setIsClicked(false), 600);
     onToggle();
   };
 
@@ -86,19 +86,12 @@ const CollapsibleSection: React.FC<{
               </h3>
               {accentIcon && (
                 <div className="relative flex items-center justify-center">
-                  <div className={`transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) transform ${
+                  <div className={`transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) transform ${
                     isOpen ? 'opacity-100 scale-125 rotate-0 text-indigo-500' : 'opacity-40 scale-90 -rotate-12 text-slate-300'
-                  } group-hover:opacity-100 group-hover:scale-[2.1] group-hover:rotate-[20deg] group-hover:text-indigo-600 ${isClicked ? 'animate-[wiggle_0.4s_ease-in-out_infinite] scale-[2.6] text-indigo-400 drop-shadow-[0_0_20px_rgba(79,70,229,0.6)]' : ''}`}>
+                  } group-hover:opacity-100 group-hover:scale-[2.1] group-hover:rotate-[15deg] group-hover:text-indigo-600 ${isClicked ? 'animate-[wiggle_0.4s_ease-in-out_infinite] scale-[2.5] text-indigo-400 drop-shadow-[0_0_20px_rgba(79,70,229,0.6)]' : ''}`}>
                     {accentIcon}
                   </div>
-                  <div className={`absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full transition-all duration-1000 -z-10 ${isHovered || isOpen ? 'scale-[5] opacity-100' : 'scale-0 opacity-0'}`}></div>
-                  {isClicked && (
-                    <>
-                      <div className="absolute inset-0 bg-indigo-600/40 rounded-full animate-ping scale-[5] -z-10"></div>
-                      <div className="absolute inset-0 border-[10px] border-indigo-400/30 rounded-full animate-[ping_0.7s_ease-out_forwards] scale-[3] -z-10"></div>
-                      <div className="absolute inset-0 w-16 h-16 bg-white/30 blur-2xl rounded-full animate-pulse"></div>
-                    </>
-                  )}
+                  <div className={`absolute inset-0 bg-indigo-500/10 blur-3xl rounded-full transition-all duration-1000 -z-10 ${isHovered || isOpen ? 'scale-[5] opacity-100' : 'scale-0 opacity-0'}`}></div>
                 </div>
               )}
               {shortcut && <ShortcutBadge keys={shortcut} />}
@@ -138,6 +131,7 @@ const CollapsibleSection: React.FC<{
 const ComplianceView: React.FC = () => {
   const [images, setImages] = useState<ImageData[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [fileSearch, setFileSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -181,9 +175,28 @@ const ComplianceView: React.FC = () => {
     references: false,
     tasks: true,
     faq: false,
+    history: false,
   });
 
   const activeReaders = useRef<FileReader[]>([]);
+
+  const historicalData = useMemo(() => [
+    { date: 'يناير', score: 45 },
+    { date: 'فبراير', score: 52 },
+    { date: 'مارس', score: 68 },
+    { date: 'أبريل', score: 75 },
+    { date: 'مايو', score: result?.score || 85 },
+  ], [result?.score]);
+
+  const filteredImages = useMemo(() => {
+    if (!fileSearch.trim()) return images;
+    return images.filter(img => img.name.toLowerCase().includes(fileSearch.toLowerCase()));
+  }, [images, fileSearch]);
+
+  const filteredUploadingFiles = useMemo(() => {
+    if (!fileSearch.trim()) return uploadingFiles;
+    return uploadingFiles.filter(file => file.name.toLowerCase().includes(fileSearch.toLowerCase()));
+  }, [uploadingFiles, fileSearch]);
 
   const generatedLink = useMemo(() => {
     if (!shareConfig.reportId) return '';
@@ -332,7 +345,7 @@ const ComplianceView: React.FC = () => {
     try {
       const res = await analyzeCompliance(images);
       setResult(res);
-      setOpenSections({ ...openSections, summary: false, details: true, recommendations: true, references: true });
+      setOpenSections({ ...openSections, summary: false, details: true, recommendations: true, references: true, history: true });
     } catch (err) {
       setError('حدث خطأ فني أثناء تحليل المخططات.');
     } finally {
@@ -419,7 +432,6 @@ const ComplianceView: React.FC = () => {
     }
   };
 
-  const COLORS = ['#4f46e5', '#f1f5f9'];
   const chartData = result ? [{ name: 'امتثال', value: result.score }, { name: 'فجوة', value: 100 - result.score }] : [];
 
   const overallUploadProgress = uploadingFiles.length > 0 
@@ -433,7 +445,6 @@ const ComplianceView: React.FC = () => {
       <aside className="lg:col-span-4 space-y-8 print:hidden sticky top-28">
         <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[3rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 transition-colors relative overflow-hidden">
           
-          {/* Error Banner */}
           {error && (
             <div className="absolute top-0 left-0 right-0 z-50 animate-in slide-in-from-top-full duration-500">
               <div className="mx-6 mt-6 p-4 bg-rose-50 dark:bg-rose-900/40 border border-rose-100 dark:border-rose-800 rounded-2xl shadow-xl backdrop-blur-sm flex items-center justify-between group/error">
@@ -455,7 +466,6 @@ const ComplianceView: React.FC = () => {
             </div>
           )}
 
-          {/* Consolidated Progress Bar */}
           {uploadingFiles.length > 0 && (
             <div className="mb-10 p-7 bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-3xl animate-in fade-in slide-in-from-top-4 shadow-sm relative overflow-hidden">
               <div className="flex justify-between items-center mb-5 relative z-10">
@@ -470,10 +480,10 @@ const ComplianceView: React.FC = () => {
                 </div>
                 <button 
                   onClick={cancelUploads}
-                  className="px-3 py-2 bg-white dark:bg-slate-800 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-xl transition-all group/cancel flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95"
+                  className="px-3 py-2 bg-white dark:bg-slate-800 text-rose-50 dark:hover:bg-rose-900/40 rounded-xl transition-all group/cancel flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95"
                 >
-                  <span className="text-[10px] font-black">إلغاء الكل</span>
-                  <svg className="w-4 h-4 transition-transform group-hover/cancel:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="text-[10px] font-black text-rose-500">إلغاء الكل</span>
+                  <svg className="w-4 h-4 text-rose-500 transition-transform group-hover/cancel:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -502,7 +512,7 @@ const ComplianceView: React.FC = () => {
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); processFiles(e.dataTransfer.files); }}
             className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[350px] ${
               isDragging 
-                ? 'bg-gradient-to-br from-indigo-100/40 via-blue-50/40 to-emerald-50/40 dark:from-indigo-900/40 dark:via-blue-900/30 dark:to-slate-900/40 marching-ants-border scale-[1.05] shadow-2xl shadow-indigo-200/50 dark:shadow-indigo-900/50' 
+                ? 'bg-indigo-100/50 dark:bg-indigo-900/30 marching-ants-border scale-[1.02] shadow-2xl shadow-indigo-200/50 dark:shadow-indigo-900/50 border-transparent' 
                 : 'bg-slate-50/30 dark:bg-slate-800/20 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-white dark:hover:bg-slate-700'
             }`}
           >
@@ -520,12 +530,16 @@ const ComplianceView: React.FC = () => {
             
             <div className="relative z-10 transition-all duration-500">
               <p className={`font-black text-2xl mb-2 transition-all duration-300 ${isDragging ? 'text-indigo-600 dark:text-indigo-400 scale-110' : 'text-slate-800 dark:text-white'}`}>
-                {isDragging ? 'أفلت الملفات الآن!' : 'ارفع المخططات'}
+                {isDragging ? 'أفلت المخططات هنا!' : 'ارفع المخططات'}
               </p>
               <p className={`text-sm font-bold transition-all duration-300 ${isDragging ? 'text-indigo-500/70 dark:text-indigo-300/70 opacity-100' : 'text-slate-400 opacity-70'}`}>
-                {isDragging ? 'سيتم التعرف على التفاصيل الهندسية' : 'اسحب وأفلت أو انقر للاختيار'}
+                {isDragging ? 'التطبيق جاهز لاستقبال ملفاتك' : 'اسحب وأفلت أو انقر للاختيار'}
               </p>
             </div>
+
+            {isDragging && (
+              <div className="absolute inset-0 border-[10px] border-indigo-500/10 pointer-events-none rounded-[2.5rem]"></div>
+            )}
           </div>
 
           {(images.length > 0 || uploadingFiles.length > 0) && (
@@ -542,15 +556,28 @@ const ComplianceView: React.FC = () => {
                 )}
               </div>
 
+              <div className="relative group">
+                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none transition-colors group-focus-within:text-indigo-600 text-slate-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <input 
+                  type="text" 
+                  value={fileSearch}
+                  onChange={(e) => setFileSearch(e.target.value)}
+                  placeholder="بحث في المرفقات..."
+                  className="w-full pr-11 pl-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 focus:border-indigo-500 outline-none transition-all text-xs font-bold dark:text-white"
+                />
+              </div>
+
               <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                {uploadingFiles.map((file, idx) => (
+                {filteredUploadingFiles.map((file, idx) => (
                   <div 
                     key={file.id} 
                     style={{ animationDelay: `${idx * 50}ms` }}
                     className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 opacity-60 animate-in fade-in slide-in-from-right-4 duration-300 fill-mode-both"
                   >
                     <div className="flex justify-between items-center mb-3">
-                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 truncate w-3/4">{file.name}</span>
+                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 truncate w-3/4 transition-all duration-300">{file.name}</span>
                       <span className="text-[10px] font-black text-indigo-600">{file.progress}%</span>
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
@@ -559,28 +586,34 @@ const ComplianceView: React.FC = () => {
                   </div>
                 ))}
 
-                {images.map((img, index) => (
+                {filteredImages.map((img, index) => (
                   <div 
                     key={index} 
                     style={{ animationDelay: `${(uploadingFiles.length + index) * 50}ms` }}
-                    className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-900 transition-all transform hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-300 fill-mode-both"
+                    className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative hover:shadow-lg hover:border-indigo-200 dark:hover:border-indigo-900 transition-all transform hover:scale-[1.02] animate-in fade-in slide-in-from-right-4 duration-300 fill-mode-both overflow-hidden"
                   >
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700 border border-slate-50 dark:border-slate-600 shrink-0">
                       <img src={`data:${img.mimeType};base64,${img.base64}`} alt={img.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{img.name}</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate transition-all duration-500 group-hover:text-indigo-600 group-hover:translate-x-[-2px]">{img.name}</p>
                       <p className="text-[9px] text-slate-400 font-mono mt-0.5">{(img.base64.length * 0.75 / 1024).toFixed(1)} KB</p>
                     </div>
                     <button 
                       onClick={() => removeImage(index)} 
-                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all group/del"
+                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all group/del active:scale-90"
                       title="حذف المخطط"
                     >
-                      <svg className="w-4 h-4 transition-transform group-hover/del:rotate-90 group-hover/del:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      <svg className="w-4 h-4 transition-all duration-500 group-hover/del:rotate-90 group-hover/del:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
                 ))}
+                
+                {(fileSearch && filteredImages.length === 0 && filteredUploadingFiles.length === 0) && (
+                  <div className="py-10 text-center animate-in fade-in zoom-in-95">
+                    <p className="text-xs font-bold text-slate-400 italic">لا توجد ملفات تطابق البحث...</p>
+                  </div>
+                )}
               </div>
 
               <button
@@ -623,12 +656,11 @@ const ComplianceView: React.FC = () => {
 
         {result && (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            {/* Executive Summary Dashboard */}
             <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-8 md:p-12 border border-indigo-100 dark:border-indigo-900/40 shadow-2xl shadow-indigo-100/30 relative overflow-hidden group">
                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 dark:bg-indigo-900/10 rounded-bl-full blur-3xl opacity-50 -z-10 group-hover:scale-110 transition-transform duration-1000"></div>
                
-               <div className="flex flex-col md:flex-row items-center gap-10">
-                  <div className="shrink-0 relative">
+               <div className="flex flex-col md:flex-row items-start gap-10">
+                  <div className="shrink-0 relative self-center">
                     <div className="w-48 h-48">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -671,6 +703,26 @@ const ComplianceView: React.FC = () => {
                         "{result.executiveSummary}"
                       </p>
                     </div>
+
+                    {result.findings && result.findings.length > 0 && (
+                      <div className="bg-slate-50 dark:bg-slate-800/40 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">أبرز الملاحظات الهندسية</h4>
+                        </div>
+                        <ul className="space-y-2">
+                          {result.findings.slice(0, 2).map((f, i) => (
+                            <li key={i} className="text-sm font-bold text-slate-700 dark:text-slate-200 flex items-start gap-2">
+                              <span className="text-indigo-600">•</span>
+                              <span className="truncate">{f.text}</span>
+                            </li>
+                          ))}
+                          {result.findings.length > 2 && (
+                            <li className="text-[10px] font-black text-indigo-500/70 mr-4">+{result.findings.length - 2} ملاحظة إضافية في التقرير المفصل</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-50 dark:border-slate-800">
                       <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -693,14 +745,14 @@ const ComplianceView: React.FC = () => {
             <div className="flex justify-end gap-3 print:hidden">
               <button 
                 onClick={handleShareReport}
-                className="flex items-center gap-2 px-6 py-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-2xl text-xs font-black hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-2xl text-xs font-black hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-95"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                 مشاركة التقرير
               </button>
               <button 
                 onClick={() => window.print()}
-                className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-black hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-black hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-95"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                 طباعة / PDF
@@ -708,6 +760,61 @@ const ComplianceView: React.FC = () => {
             </div>
 
             <div className="space-y-6">
+              <CollapsibleSection
+                id="history-section"
+                title="تطور الامتثال الزمني"
+                description="مخطط بياني يوضح تحسن نسبة الامتثال عبر مراجعات المشروع المختلفة."
+                isOpen={openSections.history}
+                onToggle={() => toggleSection('history')}
+                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" /></svg>}
+                icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
+              >
+                <div className="h-80 w-full bg-slate-50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-slate-800">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={historicalData}>
+                      <defs>
+                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
+                      />
+                      <YAxis 
+                        domain={[0, 100]} 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 700 }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#0f172a', 
+                          borderRadius: '16px', 
+                          border: 'none', 
+                          color: '#fff',
+                          fontWeight: 'bold'
+                        }}
+                        itemStyle={{ color: '#818cf8' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="#4f46e5" 
+                        strokeWidth={4} 
+                        fillOpacity={1} 
+                        fill="url(#colorScore)" 
+                        animationDuration={2000}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CollapsibleSection>
+
               <CollapsibleSection
                 id="details-section"
                 title="التفاصيل والملاحظات الفنية"
@@ -760,7 +867,7 @@ const ComplianceView: React.FC = () => {
                         <span className="text-lg font-medium text-slate-700 dark:text-slate-200">{rec}</span>
                         <button 
                           onClick={() => handleCopyRec(rec, idx)}
-                          className={`shrink-0 p-2 rounded-xl transition-all ${copiedRecIndex === idx ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}
+                          className={`shrink-0 p-2 rounded-xl transition-all ${copiedRecIndex === idx ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 active:scale-90'}`}
                         >
                           {copiedRecIndex === idx ? (
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
@@ -793,14 +900,14 @@ const ComplianceView: React.FC = () => {
                               href={ref}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-105 transition-all flex items-center gap-2 border border-transparent hover:border-indigo-400"
+                              className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-105 transition-all flex items-center gap-2 border border-transparent hover:border-indigo-400 active:scale-95"
                             >
                               <span className="max-w-[150px] truncate">{ref}</span>
                               <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                             </a>
                             <button 
                               onClick={() => handleCopyReference(ref, idx)}
-                              className={`p-3 rounded-2xl shadow-xl transition-all hover:scale-110 ${copiedReferenceIndex === idx ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}
+                              className={`p-3 rounded-2xl shadow-xl transition-all hover:scale-110 active:scale-90 ${copiedReferenceIndex === idx ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}
                               title="نسخ الرابط"
                             >
                               {copiedReferenceIndex === idx ? (
@@ -813,7 +920,7 @@ const ComplianceView: React.FC = () => {
                         ) : (
                           <button 
                             onClick={() => handleCopyReference(ref, idx)}
-                            className={`px-6 py-3 rounded-2xl font-bold text-sm shadow-xl hover:scale-110 hover:-rotate-1 transition-all cursor-pointer flex items-center gap-3 border border-transparent ${
+                            className={`px-6 py-3 rounded-2xl font-bold text-sm shadow-xl hover:scale-110 hover:-rotate-1 transition-all cursor-pointer flex items-center gap-3 border border-transparent active:scale-95 ${
                               copiedReferenceIndex === idx 
                                 ? 'bg-emerald-600 text-white shadow-emerald-200' 
                                 : 'bg-slate-900 dark:bg-slate-800 text-white hover:border-indigo-400'
@@ -839,7 +946,7 @@ const ComplianceView: React.FC = () => {
                 description="إجابات سريعة حول أكثر النقاط تساؤلاً في كود البناء السعودي."
                 isOpen={openSections.faq} 
                 onToggle={() => toggleSection('faq')} 
-                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zM12 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3z" /></svg>}
+                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                 icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
               >
                 <div className="space-y-6">
@@ -948,7 +1055,7 @@ const ComplianceView: React.FC = () => {
                         const newSections = { ...shareConfig.sections, [s.id as keyof typeof shareConfig.sections]: !shareConfig.sections[s.id as keyof typeof shareConfig.sections] };
                         setShareConfig({ ...shareConfig, sections: newSections });
                       }}
-                      className={`flex flex-col items-start p-4 rounded-2xl border transition-all text-right ${
+                      className={`flex flex-col items-start p-4 rounded-2xl border transition-all text-right active:scale-95 ${
                         shareConfig.sections[s.id as keyof typeof shareConfig.sections] 
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' 
                         : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700 text-slate-400'
@@ -979,7 +1086,7 @@ const ComplianceView: React.FC = () => {
                       <button 
                         key={exp.id}
                         onClick={() => setShareConfig({ ...shareConfig, expiration: exp.id })}
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all active:scale-95 ${
                           shareConfig.expiration === exp.id 
                           ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md' 
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'
@@ -1001,7 +1108,7 @@ const ComplianceView: React.FC = () => {
                       <button 
                         key={lvl.id}
                         onClick={() => setShareConfig({ ...shareConfig, accessLevel: lvl.id })}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black transition-all border ${
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black transition-all border active:scale-95 ${
                           shareConfig.accessLevel === lvl.id 
                           ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400' 
                           : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'
@@ -1018,7 +1125,7 @@ const ComplianceView: React.FC = () => {
               <div className="p-6 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-4">
                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-xl ${shareConfig.passwordProtected ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
+                      <div className={`p-2 rounded-xl transition-colors ${shareConfig.passwordProtected ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                       </div>
                       <h4 className="text-sm font-black text-slate-800 dark:text-white">حماية الرابط بكلمة مرور</h4>
@@ -1036,7 +1143,7 @@ const ComplianceView: React.FC = () => {
                     value={shareConfig.password}
                     onChange={(e) => setShareConfig({ ...shareConfig, password: e.target.value })}
                     placeholder="أدخل كلمة مرور قوية..."
-                    className="w-full px-5 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900/20 font-bold text-xs"
+                    className="w-full px-5 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900/20 font-bold text-xs animate-in slide-in-from-top-2"
                    />
                 )}
               </div>
@@ -1055,7 +1162,7 @@ const ComplianceView: React.FC = () => {
                   <div className="mt-auto space-y-3">
                     <button 
                       onClick={copyShareLink}
-                      className={`w-full py-4 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-3 ${
+                      className={`w-full py-4 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-3 active:scale-95 ${
                         isLinkCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none'
                       }`}
                     >
@@ -1071,7 +1178,7 @@ const ComplianceView: React.FC = () => {
                         </>
                       )}
                     </button>
-                    <button className="w-full py-4 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-black border border-slate-100 dark:border-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-3 shadow-sm">
+                    <button className="w-full py-4 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-black border border-slate-100 dark:border-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-3 shadow-sm active:scale-95">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                       إرسال عبر البريد
                     </button>
@@ -1080,7 +1187,7 @@ const ComplianceView: React.FC = () => {
               </div>
               <button 
                 onClick={() => setShowShareModal(false)}
-                className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl font-black text-xs hover:bg-slate-200 transition-colors"
+                className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl font-black text-xs hover:bg-slate-200 transition-colors active:scale-95"
               >
                 تجاهل التغييرات
               </button>
@@ -1100,8 +1207,8 @@ const ComplianceView: React.FC = () => {
               className="w-full h-40 p-6 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl outline-none focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/20 transition-all font-medium text-lg leading-relaxed dark:text-white mb-8"
             />
             <div className="flex gap-4">
-              <button onClick={saveFindingEdit} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">حفظ التعديلات</button>
-              <button onClick={() => setEditingFindingIndex(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm">إلغاء</button>
+              <button onClick={saveFindingEdit} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95">حفظ التعديلات</button>
+              <button onClick={() => setEditingFindingIndex(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm active:scale-95">إلغاء</button>
             </div>
           </div>
         </div>
