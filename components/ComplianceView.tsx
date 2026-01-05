@@ -187,6 +187,12 @@ const ComplianceView: React.FC = () => {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
+  const cancelUploads = () => {
+    activeReaders.current.forEach(reader => reader.abort());
+    activeReaders.current = [];
+    setUploadingFiles([]);
+  };
+
   const processFiles = async (files: FileList | null) => {
     if (!files) return;
     setError(null);
@@ -222,12 +228,17 @@ const ComplianceView: React.FC = () => {
           const base64 = (reader.result as string).split(',')[1];
           setImages(prev => [...prev, { base64, mimeType: file.type, name: file.name }]);
           setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
+          // Remove reader from active list
+          activeReaders.current = activeReaders.current.filter(r => r !== reader);
           resolve();
         };
 
         reader.onerror = () => {
-          setError(`فشل رفع ${file.name}`);
+          if (reader.error?.name !== 'AbortError') {
+            setError(`فشل رفع ${file.name}`);
+          }
           setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
+          activeReaders.current = activeReaders.current.filter(r => r !== reader);
           resolve();
         };
         reader.readAsDataURL(file);
@@ -331,6 +342,10 @@ const ComplianceView: React.FC = () => {
   const COLORS = ['#4f46e5', '#f1f5f9'];
   const chartData = result ? [{ name: 'امتثال', value: result.score }, { name: 'فجوة', value: 100 - result.score }] : [];
 
+  const overallUploadProgress = uploadingFiles.length > 0 
+    ? Math.round(uploadingFiles.reduce((acc, curr) => acc + curr.progress, 0) / uploadingFiles.length)
+    : 0;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start pb-24">
       
@@ -348,33 +363,70 @@ const ComplianceView: React.FC = () => {
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); processFiles(e.dataTransfer.files); }}
-            className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[300px] ${
+            className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[350px] ${
               isDragging 
-                ? 'bg-indigo-100/50 dark:bg-indigo-900/40 marching-ants-border scale-[1.05] shadow-2xl shadow-indigo-200/50' 
+                ? 'bg-gradient-to-br from-indigo-50/80 to-blue-50/80 dark:from-indigo-900/40 dark:to-slate-900/40 marching-ants-border scale-[1.05] shadow-2xl shadow-indigo-200/50' 
                 : 'bg-slate-50/30 dark:bg-slate-800/20 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-400'
             }`}
           >
-            <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-20" />
+            <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-30" />
             
-            <div className={`w-24 h-24 rounded-3xl shadow-xl border flex items-center justify-center mb-6 transition-all duration-700 ${
+            <div className={`w-28 h-28 rounded-3xl shadow-xl border flex items-center justify-center mb-8 transition-all duration-700 ${
               isDragging 
-                ? 'bg-indigo-600 text-white rotate-[15deg] scale-125 border-indigo-300' 
+                ? 'bg-indigo-600 text-white rotate-[15deg] scale-125 border-indigo-300 ring-8 ring-indigo-500/20' 
                 : 'bg-white dark:bg-slate-900 text-indigo-500 border-slate-50 dark:border-slate-800'
             }`}>
-              <svg className={`w-12 h-12 ${isDragging ? 'animate-bounce' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-14 h-14 ${isDragging ? 'animate-bounce' : 'group-hover:translate-y-[-4px] transition-transform'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
             </div>
             
             <div className="relative z-10">
-              <p className="font-black text-2xl mb-2 text-slate-800 dark:text-white">
-                {isDragging ? 'أفلت المخططات هنا' : 'ارفع المخططات'}
+              <p className={`font-black text-2xl mb-2 transition-all duration-300 ${isDragging ? 'text-indigo-600 dark:text-indigo-400 scale-110' : 'text-slate-800 dark:text-white'}`}>
+                {isDragging ? 'أفلت الملفات الآن!' : 'ارفع المخططات'}
               </p>
-              <p className="text-sm font-bold text-slate-400 opacity-70">
-                {isDragging ? 'سيتم البدء بمعالجة الملفات فوراً' : 'اسحب وأفلت أو انقر للاختيار'}
+              <p className={`text-sm font-bold transition-all duration-300 ${isDragging ? 'text-indigo-400 opacity-100' : 'text-slate-400 opacity-70'}`}>
+                {isDragging ? 'سيتم التعرف على التفاصيل الهندسية' : 'اسحب وأفلت أو انقر للاختيار'}
               </p>
             </div>
+
+            {isDragging && (
+              <div className="absolute inset-0 bg-indigo-500/5 animate-pulse pointer-events-none"></div>
+            )}
           </div>
+
+          {/* Consolidated Progress Bar */}
+          {uploadingFiles.length > 0 && (
+            <div className="mt-8 p-6 bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-3xl animate-in fade-in slide-in-from-top-4">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs font-black animate-pulse">
+                    {uploadingFiles.length}
+                  </div>
+                  <span className="text-xs font-black text-slate-700 dark:text-slate-200">جاري رفع المستندات...</span>
+                </div>
+                <button 
+                  onClick={cancelUploads}
+                  className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all group/cancel"
+                  title="إلغاء الرفع"
+                >
+                  <svg className="w-5 h-5 transition-transform group-hover/cancel:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden relative">
+                <div 
+                  className="bg-indigo-600 h-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(79,70,229,0.5)]" 
+                  style={{ width: `${overallUploadProgress}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="text-[10px] font-bold text-slate-400">الإجمالي: {overallUploadProgress}%</span>
+                <span className="text-[10px] font-bold text-indigo-600 animate-pulse">معالجة فورية</span>
+              </div>
+            </div>
+          )}
 
           {(images.length > 0 || uploadingFiles.length > 0) && (
             <div className="mt-10 space-y-6">
@@ -389,7 +441,7 @@ const ComplianceView: React.FC = () => {
 
               <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                 {uploadingFiles.map((file) => (
-                  <div key={file.id} className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 animate-pulse">
+                  <div key={file.id} className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 opacity-60">
                     <div className="flex justify-between items-center mb-3">
                       <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 truncate w-3/4">{file.name}</span>
                       <span className="text-[10px] font-black text-indigo-600">{file.progress}%</span>
@@ -424,7 +476,7 @@ const ComplianceView: React.FC = () => {
 
               <button
                 onClick={handleAnalyze}
-                disabled={loading || images.length === 0}
+                disabled={loading || images.length === 0 || uploadingFiles.length > 0}
                 className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-3 mt-8 relative overflow-hidden group/btn"
               >
                 {loading ? (
