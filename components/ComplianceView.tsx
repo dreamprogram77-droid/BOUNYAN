@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { analyzeCompliance } from '../services/geminiService';
 import { AnalysisResult, ImageData, DetailedFinding } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -37,11 +37,12 @@ const CollapsibleSection: React.FC<{
   accentIcon?: React.ReactNode;
 }> = ({ id, title, description, isOpen, onToggle, icon, children, shortcut, accentIcon }) => {
   const [isClicked, setIsClicked] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const contentId = `content-${id}`;
 
   const handleToggle = () => {
     setIsClicked(true);
-    setTimeout(() => setIsClicked(false), 400);
+    setTimeout(() => setIsClicked(false), 800);
     onToggle();
   };
 
@@ -53,6 +54,8 @@ const CollapsibleSection: React.FC<{
     } scroll-mt-24 overflow-hidden`}>
       <button
         onClick={handleToggle}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         aria-expanded={isOpen}
         aria-controls={contentId}
         className={`w-full flex items-center justify-between p-7 md:p-9 text-right transition-all duration-500 focus:outline-none focus:ring-4 focus:ring-indigo-100/50 dark:focus:ring-indigo-900/20 group ${
@@ -75,17 +78,27 @@ const CollapsibleSection: React.FC<{
             )}
           </div>
           <div className="text-right">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <h3 className={`font-black text-2xl md:text-3xl transition-all duration-500 ${
                 isOpen ? 'text-slate-900 dark:text-white translate-x-[-4px]' : 'text-slate-600 dark:text-slate-400'
               }`}>
                 {title}
               </h3>
               {accentIcon && (
-                <div className={`relative transition-all duration-500 transform ${
-                  isOpen ? 'opacity-100 scale-110 rotate-0 text-indigo-500' : 'opacity-40 scale-75 -rotate-12 text-slate-300'
-                } group-hover:opacity-100 group-hover:scale-125 group-hover:rotate-12 group-hover:text-indigo-600 ${isClicked ? 'animate-ping text-indigo-600' : ''}`}>
-                  {accentIcon}
+                <div className="relative flex items-center justify-center">
+                  <div className={`transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1) transform ${
+                    isOpen ? 'opacity-100 scale-125 rotate-0 text-indigo-500' : 'opacity-40 scale-90 -rotate-12 text-slate-300'
+                  } group-hover:opacity-100 group-hover:scale-[2.1] group-hover:rotate-[20deg] group-hover:text-indigo-600 ${isClicked ? 'animate-[wiggle_0.4s_ease-in-out_infinite] scale-[2.6] text-indigo-400 drop-shadow-[0_0_20px_rgba(79,70,229,0.6)]' : ''}`}>
+                    {accentIcon}
+                  </div>
+                  <div className={`absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full transition-all duration-1000 -z-10 ${isHovered || isOpen ? 'scale-[5] opacity-100' : 'scale-0 opacity-0'}`}></div>
+                  {isClicked && (
+                    <>
+                      <div className="absolute inset-0 bg-indigo-600/40 rounded-full animate-ping scale-[5] -z-10"></div>
+                      <div className="absolute inset-0 border-[10px] border-indigo-400/30 rounded-full animate-[ping_0.7s_ease-out_forwards] scale-[3] -z-10"></div>
+                      <div className="absolute inset-0 w-16 h-16 bg-white/30 blur-2xl rounded-full animate-pulse"></div>
+                    </>
+                  )}
                 </div>
               )}
               {shortcut && <ShortcutBadge keys={shortcut} />}
@@ -130,23 +143,24 @@ const ComplianceView: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [generatedLink, setGeneratedLink] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [copiedRecIndex, setCopiedRecIndex] = useState<number | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   
-  // State for sharing configuration
   const [shareConfig, setShareConfig] = useState({
+    reportId: '',
     sections: {
       summary: true,
       details: true,
       recommendations: true,
       references: true,
     },
-    expiration: '24h' // 1h, 24h, 7d, never
+    expiration: '24h', 
+    passwordProtected: false,
+    password: '',
+    accessLevel: 'view' 
   });
 
-  // State for editing findings
   const [editingFindingIndex, setEditingFindingIndex] = useState<number | null>(null);
   const [tempFindingText, setTempFindingText] = useState('');
 
@@ -156,11 +170,13 @@ const ComplianceView: React.FC = () => {
     { id: '3', text: 'مراجعة عزل الواجهات حسب كود الطاقة السعودي', completed: true },
   ]);
   const [newTaskText, setNewTaskText] = useState('');
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [tempTaskText, setTempTaskText] = useState('');
 
   const [openSections, setOpenSections] = useState({
     summary: false,
     details: true,
-    recommendations: true,
+    recommendations: false,
     references: false,
     tasks: true,
     faq: false,
@@ -168,7 +184,24 @@ const ComplianceView: React.FC = () => {
 
   const activeReaders = useRef<FileReader[]>([]);
 
-  // Auto-dismiss error banner
+  const generatedLink = useMemo(() => {
+    if (!shareConfig.reportId) return '';
+    const sections = Object.entries(shareConfig.sections)
+      .filter(([_, enabled]) => enabled)
+      .map(([name]) => name)
+      .join(',');
+    
+    const params = new URLSearchParams();
+    params.set('s', sections);
+    params.set('exp', shareConfig.expiration);
+    params.set('access', shareConfig.accessLevel);
+    if (shareConfig.passwordProtected && shareConfig.password) {
+      params.set('pw', '1'); 
+    }
+    
+    return `${window.location.origin}/report/${shareConfig.reportId}?${params.toString()}`;
+  }, [shareConfig]);
+
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => {
@@ -190,13 +223,14 @@ const ComplianceView: React.FC = () => {
       }
 
       if (e.altKey && e.key === 'Backspace') {
-        if (images.length > 0) setShowConfirmClear(true);
+        if (images.length > 0 || uploadingFiles.length > 0) setShowConfirmClear(true);
       }
 
       if (e.key === 'Escape') {
         setShowConfirmClear(false);
         setEditingFindingIndex(null);
         setShowShareModal(false);
+        setEditingTaskId(null);
       }
     };
 
@@ -212,6 +246,13 @@ const ComplianceView: React.FC = () => {
     activeReaders.current.forEach(reader => reader.abort());
     activeReaders.current = [];
     setUploadingFiles([]);
+  };
+
+  const clearAllData = () => {
+    cancelUploads();
+    setImages([]);
+    setResult(null);
+    setShowConfirmClear(false);
   };
 
   const processFiles = async (files: FileList | null) => {
@@ -255,7 +296,6 @@ const ComplianceView: React.FC = () => {
           const base64 = (reader.result as string).split(',')[1];
           setImages(prev => [...prev, { base64, mimeType: file.type, name: file.name }]);
           setUploadingFiles(prev => prev.filter(f => f.id !== fileId));
-          // Remove reader from active list
           activeReaders.current = activeReaders.current.filter(r => r !== reader);
           resolve();
         };
@@ -317,6 +357,18 @@ const ComplianceView: React.FC = () => {
 
   const removeTask = (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
+    if (editingTaskId === id) setEditingTaskId(null);
+  };
+
+  const startEditTask = (task: Task) => {
+    setEditingTaskId(task.id);
+    setTempTaskText(task.text);
+  };
+
+  const saveTaskEdit = (id: string) => {
+    if (!tempTaskText.trim()) return;
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, text: tempTaskText } : t));
+    setEditingTaskId(null);
   };
 
   const handleCopyRec = (text: string, index: number) => {
@@ -328,13 +380,7 @@ const ComplianceView: React.FC = () => {
 
   const handleShareReport = () => {
     const reportId = Math.random().toString(36).substring(2, 12).toUpperCase();
-    // Build query params based on config
-    const sections = Object.entries(shareConfig.sections)
-      .filter(([_, enabled]) => enabled)
-      .map(([name]) => name)
-      .join(',');
-    const link = `${window.location.origin}/report/${reportId}?s=${sections}&exp=${shareConfig.expiration}`;
-    setGeneratedLink(link);
+    setShareConfig(prev => ({ ...prev, reportId }));
     setIsLinkCopied(false);
     setShowShareModal(true);
   };
@@ -359,16 +405,6 @@ const ComplianceView: React.FC = () => {
       setResult({ ...result, findings: newFindings });
       setEditingFindingIndex(null);
     }
-  };
-
-  const handleScrollToDetails = () => {
-    setOpenSections(prev => ({ ...prev, details: true }));
-    setTimeout(() => {
-      const element = document.getElementById('details-section');
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
   };
 
   const COLORS = ['#4f46e5', '#f1f5f9'];
@@ -400,7 +436,6 @@ const ComplianceView: React.FC = () => {
                 <button 
                   onClick={() => setError(null)}
                   className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-800 rounded-lg transition-all shrink-0"
-                  title="إغلاق التنبيه"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
@@ -408,7 +443,7 @@ const ComplianceView: React.FC = () => {
             </div>
           )}
 
-          {/* Consolidated Progress Bar - At the very top of the Sidebar area */}
+          {/* Consolidated Progress Bar */}
           {uploadingFiles.length > 0 && (
             <div className="mb-10 p-7 bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-3xl animate-in fade-in slide-in-from-top-4 shadow-sm relative overflow-hidden">
               <div className="flex justify-between items-center mb-5 relative z-10">
@@ -424,7 +459,6 @@ const ComplianceView: React.FC = () => {
                 <button 
                   onClick={cancelUploads}
                   className="px-3 py-2 bg-white dark:bg-slate-800 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/40 rounded-xl transition-all group/cancel flex items-center gap-2 border border-slate-100 dark:border-slate-700 shadow-sm active:scale-95"
-                  title="إلغاء جميع عمليات الرفع"
                 >
                   <span className="text-[10px] font-black">إلغاء الكل</span>
                   <svg className="w-4 h-4 transition-transform group-hover/cancel:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -439,13 +473,6 @@ const ComplianceView: React.FC = () => {
                 >
                   <div className="absolute inset-0 bg-white/20 animate-[shimmer_1.5s_infinite_linear]"></div>
                 </div>
-              </div>
-              <div className="flex justify-between mt-3">
-                <div className="flex items-center gap-1.5">
-                   <span className="text-[10px] font-black text-slate-500">الإجمالي:</span>
-                   <span className="text-[10px] font-black text-indigo-600">{overallUploadProgress}%</span>
-                </div>
-                <span className="text-[9px] font-bold text-slate-400 italic">نظام المعالجة الفوري نشط</span>
               </div>
             </div>
           )}
@@ -464,7 +491,7 @@ const ComplianceView: React.FC = () => {
             className={`group rounded-[2.5rem] p-12 text-center transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col items-center justify-center min-h-[350px] ${
               isDragging 
                 ? 'bg-gradient-to-br from-indigo-100/40 via-blue-50/40 to-emerald-50/40 dark:from-indigo-900/40 dark:via-blue-900/30 dark:to-slate-900/40 marching-ants-border scale-[1.05] shadow-2xl shadow-indigo-200/50 dark:shadow-indigo-900/50' 
-                : 'bg-slate-50/30 dark:bg-slate-800/20 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-400'
+                : 'bg-slate-50/30 dark:bg-slate-800/20 border-2 border-dashed border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700 hover:border-indigo-400'
             }`}
           >
             <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-30" />
@@ -487,10 +514,6 @@ const ComplianceView: React.FC = () => {
                 {isDragging ? 'سيتم التعرف على التفاصيل الهندسية' : 'اسحب وأفلت أو انقر للاختيار'}
               </p>
             </div>
-
-            {isDragging && (
-              <div className="absolute inset-0 bg-indigo-500/5 animate-pulse pointer-events-none ring-inset ring-4 ring-indigo-500/20"></div>
-            )}
           </div>
 
           {(images.length > 0 || uploadingFiles.length > 0) && (
@@ -499,41 +522,26 @@ const ComplianceView: React.FC = () => {
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
                   المرفقات ({images.length + uploadingFiles.length})
                 </h3>
-                {images.length > 0 && (
-                  <button onClick={() => setShowConfirmClear(true)} className="text-[10px] font-bold text-rose-500 hover:underline transition-all">حذف الكل</button>
+                {(images.length > 0 || uploadingFiles.length > 0) && (
+                  <button onClick={() => setShowConfirmClear(true)} className="flex items-center gap-1.5 text-[10px] font-bold text-rose-500 hover:text-rose-600 transition-colors group/clear">
+                    <svg className="w-3.5 h-3.5 transition-transform group-hover/clear:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    حذف الكل
+                  </button>
                 )}
               </div>
 
               <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                {uploadingFiles.map((file) => (
-                  <div key={file.id} className="bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 opacity-60">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 truncate w-3/4">{file.name}</span>
-                      <span className="text-[10px] font-black text-indigo-600">{file.progress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${file.progress}%` }}></div>
-                    </div>
-                  </div>
-                ))}
-
                 {images.map((img, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative hover:shadow-lg transition-all transform hover:scale-[1.02] animate-in fade-in slide-in-from-right-2">
+                  <div key={index} className="flex items-center gap-4 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 group relative hover:shadow-lg transition-all transform hover:scale-[1.02]">
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-700 border border-slate-50 dark:border-slate-600 shrink-0">
                       <img src={`data:${img.mimeType};base64,${img.base64}`} alt={img.name} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate" title={img.name}>{img.name}</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{img.name}</p>
                       <p className="text-[9px] text-slate-400 font-mono mt-0.5">{(img.base64.length * 0.75 / 1024).toFixed(1)} KB</p>
                     </div>
-                    <button 
-                      onClick={() => removeImage(index)}
-                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all group/btn"
-                      title="حذف هذا المخطط"
-                    >
-                      <svg className="w-4 h-4 transition-transform group-hover/btn:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+                    <button onClick={() => removeImage(index)} className="p-2 text-slate-400 hover:text-rose-500 rounded-lg transition-all">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
                 ))}
@@ -551,9 +559,8 @@ const ComplianceView: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <div className="absolute inset-0 bg-white/10 translate-y-full group-hover/btn:translate-y-0 transition-transform"></div>
-                    <span className="relative z-10">بدء الفحص الذكي</span>
-                    <svg className="w-5 h-5 relative z-10 transition-transform group-hover/btn:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span>بدء الفحص الذكي</span>
+                    <svg className="w-5 h-5 transition-transform group-hover/btn:translate-x-[-4px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
                     </svg>
                   </>
@@ -580,6 +587,73 @@ const ComplianceView: React.FC = () => {
 
         {result && (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            {/* Executive Summary Dashboard */}
+            <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] p-8 md:p-12 border border-indigo-100 dark:border-indigo-900/40 shadow-2xl shadow-indigo-100/30 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 dark:bg-indigo-900/10 rounded-bl-full blur-3xl opacity-50 -z-10 group-hover:scale-110 transition-transform duration-1000"></div>
+               
+               <div className="flex flex-col md:flex-row items-center gap-10">
+                  <div className="shrink-0 relative">
+                    <div className="w-48 h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie 
+                            data={chartData} 
+                            innerRadius={65} 
+                            outerRadius={85} 
+                            paddingAngle={5} 
+                            dataKey="value"
+                            startAngle={90}
+                            endAngle={450}
+                          >
+                            {chartData.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={index === 0 ? (result.status === 'non-compliant' ? '#f43f5e' : result.status === 'warning' ? '#f59e0b' : '#4f46e5') : '#f1f5f9'} 
+                                className="transition-all duration-1000"
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter">{result.score}%</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">SBC Score</span>
+                    </div>
+                    <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl border ${
+                      result.status === 'compliant' ? 'bg-emerald-500 text-white border-emerald-400' :
+                      result.status === 'warning' ? 'bg-amber-500 text-white border-amber-400' : 'bg-rose-500 text-white border-rose-400'
+                    }`}>
+                      {result.status === 'compliant' ? 'مطابق' : result.status === 'warning' ? 'تحذير' : 'غير مطابق'}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-6 text-right">
+                    <div>
+                      <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3">الملخص التنفيذي</h2>
+                      <p className="text-xl leading-relaxed text-slate-600 dark:text-slate-300 font-medium italic">
+                        "{result.executiveSummary}"
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-50 dark:border-slate-800">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                         <div className="text-[10px] font-black text-slate-400 uppercase mb-1">الملاحظات</div>
+                         <div className="text-2xl font-black text-indigo-600">{result.findings?.length || 0}</div>
+                      </div>
+                      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                         <div className="text-[10px] font-black text-slate-400 uppercase mb-1">التوصيات</div>
+                         <div className="text-2xl font-black text-indigo-600">{result.recommendations.length}</div>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                         <div className="text-[10px] font-black text-slate-400 uppercase mb-1">المراجع</div>
+                         <div className="text-2xl font-black text-indigo-600">{result.references.length}</div>
+                      </div>
+                    </div>
+                  </div>
+               </div>
+            </div>
+
             <div className="flex justify-end gap-3 print:hidden">
               <button 
                 onClick={handleShareReport}
@@ -597,162 +671,116 @@ const ComplianceView: React.FC = () => {
               </button>
             </div>
 
-            <CollapsibleSection
-              id="summary-section"
-              title="ملخص الامتثال"
-              isOpen={openSections.summary}
-              onToggle={() => toggleSection('summary')}
-              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-                <div className="h-64 relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                        {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-black text-slate-900 dark:text-white">{result.score}%</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">معدل الامتثال</span>
-                  </div>
-                </div>
-                <div className="space-y-6">
-                   <div className="flex items-center gap-4">
-                      <div className={`px-4 py-2 rounded-xl font-black text-sm ${
-                        result.status === 'compliant' ? 'bg-emerald-100 text-emerald-700' :
-                        result.status === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
-                      }`}>
-                        {result.status === 'compliant' ? 'مطابق للكود' : result.status === 'warning' ? 'تنبيهات هامة' : 'غير مطابق'}
-                      </div>
-                   </div>
-                   <p className="text-lg font-medium leading-loose text-slate-600 dark:text-slate-300">{result.executiveSummary}</p>
-                   
-                   <button 
-                     onClick={handleScrollToDetails}
-                     className="flex items-center gap-3 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl text-xs font-black hover:bg-indigo-600 transition-all shadow-xl group/btn-scroll"
-                   >
-                     <span>عرض الملاحظات التفصيلية</span>
-                     <svg className="w-4 h-4 transition-transform group-hover/btn-scroll:translate-y-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
-                     </svg>
-                   </button>
-                </div>
-              </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              id="details-section"
-              title="التفاصيل والملاحظات"
-              isOpen={openSections.details}
-              onToggle={() => toggleSection('details')}
-              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
-              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
-            >
-              <div className="space-y-8">
-                <div className="prose prose-slate dark:prose-invert max-w-none text-lg leading-relaxed">{result.details}</div>
-                {result.findings && result.findings.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                    {result.findings.map((finding, idx) => (
-                      <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 group hover:border-indigo-400 transition-all relative">
-                        <div className="flex items-start justify-between mb-4">
-                           <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-200 transition-transform group-hover:scale-110">
-                             {finding.imageIndex !== undefined ? finding.imageIndex + 1 : idx + 1}
-                           </span>
-                           <button 
-                             onClick={() => startEditFinding(idx)}
-                             className="opacity-0 group-hover:opacity-100 p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
-                             title="تعديل الملاحظة"
-                           >
-                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                           </button>
+            <div className="space-y-6">
+              <CollapsibleSection
+                id="details-section"
+                title="التفاصيل والملاحظات الفنية"
+                isOpen={openSections.details}
+                onToggle={() => toggleSection('details')}
+                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
+                icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+              >
+                <div className="space-y-8">
+                  <div className="prose prose-slate dark:prose-invert max-w-none text-lg leading-relaxed whitespace-pre-wrap">{result.details}</div>
+                  {result.findings && result.findings.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                      {result.findings.map((finding, idx) => (
+                        <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 group hover:border-indigo-400 transition-all relative">
+                          <div className="flex items-start justify-between mb-4">
+                             <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-200 transition-transform group-hover:scale-110">
+                               {finding.imageIndex !== undefined ? finding.imageIndex + 1 : idx + 1}
+                             </span>
+                             <button 
+                               onClick={() => startEditFinding(idx)}
+                               className="opacity-0 group-hover:opacity-100 p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
+                               title="تعديل الملاحظة"
+                             >
+                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                             </button>
+                          </div>
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">{finding.text}</p>
                         </div>
-                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">{finding.text}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                id="recommendations-section"
+                title="توصيات التحسين المقترحة"
+                isOpen={openSections.recommendations}
+                onToggle={() => toggleSection('recommendations')}
+                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+              >
+                <ul className="space-y-4">
+                  {result.recommendations.map((rec, idx) => (
+                    <li key={idx} className="flex items-start gap-4 p-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-700 group">
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center shrink-0 mt-1 transition-transform group-hover:scale-125">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </CollapsibleSection>
+                      <div className="flex-1 flex items-center justify-between gap-4">
+                        <span className="text-lg font-medium text-slate-700 dark:text-slate-200">{rec}</span>
+                        <button 
+                          onClick={() => handleCopyRec(rec, idx)}
+                          className={`shrink-0 p-2 rounded-xl transition-all ${copiedRecIndex === idx ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}
+                        >
+                          {copiedRecIndex === idx ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                          )}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </CollapsibleSection>
 
-            <CollapsibleSection
-              id="recommendations-section"
-              title="توصيات التحسين"
-              isOpen={openSections.recommendations}
-              onToggle={() => toggleSection('recommendations')}
-              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
-              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
-            >
-              <ul className="space-y-4">
-                {result.recommendations.map((rec, idx) => (
-                  <li key={idx} className="flex items-start gap-4 p-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-100 dark:hover:border-slate-700 group">
-                    <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center shrink-0 mt-1 transition-transform group-hover:scale-125">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+              <CollapsibleSection
+                id="references-section"
+                title="المراجع النظامية (SBC)"
+                isOpen={openSections.references}
+                onToggle={() => toggleSection('references')}
+                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
+                icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
+              >
+                <div className="flex flex-wrap gap-3">
+                  {result.references.map((ref, idx) => (
+                    <div key={idx} className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-110 hover:-rotate-2 transition-all cursor-pointer">{ref}</div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection 
+                id="faq-section" 
+                title="الأسئلة الشائعة حول الامتثال" 
+                description="إجابات سريعة حول أكثر النقاط تساؤلاً في كود البناء السعودي."
+                isOpen={openSections.faq} 
+                onToggle={() => toggleSection('faq')} 
+                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zM12 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3z" /></svg>}
+                icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              >
+                <div className="space-y-6">
+                  {[
+                    { q: "ما هي المتطلبات الأساسية لمقاومة الحريق في المباني السكنية؟", a: "يتطلب الكود السعودي توفير مخارج طوارئ محددة، واستخدام مواد بناء مقاومة للحريق حسب تصنيف المبنى، وتركيب كاشفات دخان ونظم إنذار مربوطة بلوحة تحكم." },
+                    { q: "هل يشمل التقرير بنود كود الطاقة؟", a: "نعم، يقوم الذكاء الاصطناعي بمراجعة قيم العزل الحراري (U-values) ونوعية الزجاج المستخدم لضمان كفاءة استهلاك الطاقة." },
+                    { q: "كيف يتم تحديد درجة الامتثال النهائية؟", a: "يتم احتساب الدرجة بناءً على وزن كل بند في الكود؛ البنود الحرجة المتعلقة بالسلامة لها وزن أكبر وتؤثر بشكل مباشر على حالة الامتثال." }
+                  ].map((item, i) => (
+                    <div key={i} className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-100 dark:border-slate-800 transition-all hover:border-indigo-100 group/faq">
+                      <h4 className="text-lg font-black text-slate-900 dark:text-white mb-3 flex items-center gap-3 transition-transform group-hover/faq:translate-x-[-8px]">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                        {item.q}
+                      </h4>
+                      <p className="text-sm font-bold text-slate-500 dark:text-slate-400 leading-relaxed pr-5">
+                        {item.a}
+                      </p>
                     </div>
-                    <div className="flex-1 flex items-center justify-between gap-4">
-                      <span className="text-lg font-medium text-slate-700 dark:text-slate-200">{rec}</span>
-                      <button 
-                        onClick={() => handleCopyRec(rec, idx)}
-                        className={`shrink-0 p-2 rounded-xl transition-all ${copiedRecIndex === idx ? 'bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100'}`}
-                        title="نسخ التوصية"
-                      >
-                        {copiedRecIndex === idx ? (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                        )}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              id="references-section"
-              title="المراجع النظامية (SBC)"
-              isOpen={openSections.references}
-              onToggle={() => toggleSection('references')}
-              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>}
-              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
-            >
-              <div className="flex flex-wrap gap-3">
-                {result.references.map((ref, idx) => (
-                  <div key={idx} className="px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-110 hover:-rotate-2 transition-all cursor-pointer">{ref}</div>
-                ))}
-              </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection 
-              id="faq-section" 
-              title="الأسئلة الشائعة حول الامتثال" 
-              description="إجابات سريعة حول أكثر النقاط تساؤلاً في كود البناء السعودي."
-              isOpen={openSections.faq} 
-              onToggle={() => toggleSection('faq')} 
-              accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zM12 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3z" /></svg>}
-              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-            >
-              <div className="space-y-6">
-                {[
-                  { q: "ما هي المتطلبات الأساسية لمقاومة الحريق في المباني السكنية؟", a: "يتطلب الكود السعودي توفير مخارج طوارئ محددة، واستخدام مواد بناء مقاومة للحريق حسب تصنيف المبنى، وتركيب كاشفات دخان ونظم إنذار مربوطة بلوحة تحكم." },
-                  { q: "هل يشمل التقرير بنود كود الطاقة؟", a: "نعم، يقوم الذكاء الاصطناعي بمراجعة قيم العزل الحراري (U-values) ونوعية الزجاج المستخدم لضمان كفاءة استهلاك الطاقة." },
-                  { q: "كيف يتم تحديد درجة الامتثال النهائية؟", a: "يتم احتساب الدرجة بناءً على وزن كل بند في الكود؛ البنود الحرجة المتعلقة بالسلامة لها وزن أكبر وتؤثر بشكل مباشر على حالة الامتثال." }
-                ].map((item, i) => (
-                  <div key={i} className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-[2rem] border border-slate-100 dark:border-slate-800 transition-all hover:border-indigo-100 group/faq">
-                    <h4 className="text-lg font-black text-slate-900 dark:text-white mb-3 flex items-center gap-3 transition-transform group-hover/faq:translate-x-[-8px]">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                      {item.q}
-                    </h4>
-                    <p className="text-sm font-bold text-slate-500 dark:text-slate-400 leading-relaxed pr-5">
-                      {item.a}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CollapsibleSection>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            </div>
           </div>
         )}
 
@@ -773,38 +801,66 @@ const ComplianceView: React.FC = () => {
            <div className="space-y-3">
              {tasks.map((task) => (
                <div key={task.id} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all group">
-                 <button onClick={() => toggleTask(task.id)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}>
-                   {task.completed && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
-                 </button>
-                 <span className={`flex-1 font-bold text-sm ${task.completed ? 'text-slate-300 line-through' : 'text-slate-600 dark:text-slate-300'}`}>{task.text}</span>
-                 <button onClick={() => removeTask(task.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
-                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                 </button>
+                 {editingTaskId === task.id ? (
+                   <div className="flex-1 flex gap-2">
+                     <input 
+                       type="text" 
+                       autoFocus
+                       value={tempTaskText}
+                       onChange={(e) => setTempTaskText(e.target.value)}
+                       onKeyDown={(e) => { if (e.key === 'Enter') saveTaskEdit(task.id); if (e.key === 'Escape') setEditingTaskId(null); }}
+                       className="flex-1 px-4 py-2 bg-white dark:bg-slate-700 border border-indigo-300 dark:border-indigo-600 rounded-xl outline-none text-sm font-bold dark:text-white"
+                     />
+                     <button onClick={() => saveTaskEdit(task.id)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                     </button>
+                     <button onClick={() => setEditingTaskId(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
+                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                     </button>
+                   </div>
+                 ) : (
+                   <>
+                     <button onClick={() => toggleTask(task.id)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700'}`}>
+                       {task.completed && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+                     </button>
+                     <span className={`flex-1 font-bold text-sm ${task.completed ? 'text-slate-300 line-through' : 'text-slate-600 dark:text-slate-300'}`}>{task.text}</span>
+                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                       <button onClick={() => startEditTask(task)} className="p-2 text-slate-300 hover:text-indigo-600" title="تعديل المهمة">
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                       </button>
+                       <button onClick={() => removeTask(task.id)} className="p-2 text-slate-300 hover:text-rose-500" title="حذف المهمة">
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                       </button>
+                     </div>
+                   </>
+                 )}
                </div>
              ))}
            </div>
         </div>
       </main>
 
-      {/* Share Report Modal */}
+      {/* Advanced Share Report Modal */}
       {showShareModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl p-10 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden flex flex-col md:flex-row gap-10">
-            <div className="flex-1">
-              <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-[1.5rem] flex items-center justify-center mb-6">
-                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+          <div className="bg-white dark:bg-slate-900 w-full max-w-3xl p-10 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden flex flex-col md:flex-row gap-12 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex-1 space-y-8">
+              <div>
+                <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-[1.5rem] flex items-center justify-center mb-6">
+                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">تخصيص مشاركة التقرير</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed">تحكم بدقة في المحتوى والخصوصية قبل مشاركة النتائج مع العملاء أو الفريق.</p>
               </div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">مشاركة التقرير الفني</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8 leading-relaxed">خصص الأقسام التي ترغب في مشاركتها وحدد مدة صلاحية الرابط لضمان أمان بياناتك.</p>
               
-              <div className="space-y-4 mb-8">
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">الأقسام المشمولة:</h4>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4">
+                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-50 dark:border-slate-800 pb-2">1. الأقسام المشمولة في التقرير:</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
-                    { id: 'summary', label: 'الملخص التنفيذي' },
-                    { id: 'details', label: 'التفاصيل والنتائج' },
-                    { id: 'recommendations', label: 'توصيات التحسين' },
-                    { id: 'references', label: 'المراجع النظامية' },
+                    { id: 'summary', label: 'الملخص التنفيذي', desc: 'نظرة عامة سريعة' },
+                    { id: 'details', label: 'التفاصيل والنتائج', desc: 'كافة ملاحظات المخطط' },
+                    { id: 'recommendations', label: 'توصيات التحسين', desc: 'خطوات المعالجة المقترحة' },
+                    { id: 'references', label: 'المراجع النظامية', desc: 'بنود كود SBC المرتبطة' },
                   ].map((s) => (
                     <button 
                       key={s.id}
@@ -812,76 +868,141 @@ const ComplianceView: React.FC = () => {
                         const newSections = { ...shareConfig.sections, [s.id as keyof typeof shareConfig.sections]: !shareConfig.sections[s.id as keyof typeof shareConfig.sections] };
                         setShareConfig({ ...shareConfig, sections: newSections });
                       }}
-                      className={`flex items-center gap-3 p-3 rounded-2xl border transition-all text-xs font-bold ${
+                      className={`flex flex-col items-start p-4 rounded-2xl border transition-all text-right ${
                         shareConfig.sections[s.id as keyof typeof shareConfig.sections] 
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                        : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400'
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' 
+                        : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700 text-slate-400'
                       }`}
                     >
-                      <div className={`w-4 h-4 rounded flex items-center justify-center ${shareConfig.sections[s.id as keyof typeof shareConfig.sections] ? 'bg-white text-indigo-600' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                        {shareConfig.sections[s.id as keyof typeof shareConfig.sections] && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
+                      <div className="flex items-center gap-3 mb-1">
+                        <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${shareConfig.sections[s.id as keyof typeof shareConfig.sections] ? 'bg-white text-indigo-600' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                          {shareConfig.sections[s.id as keyof typeof shareConfig.sections] && <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
+                        </div>
+                        <span className="text-xs font-black">{s.label}</span>
                       </div>
-                      {s.label}
+                      <span className={`text-[10px] font-bold ${shareConfig.sections[s.id as keyof typeof shareConfig.sections] ? 'text-indigo-100' : 'text-slate-400'}`}>{s.desc}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">صلاحية الرابط:</h4>
-                <div className="flex gap-2">
-                  {[
-                    { id: '1h', label: 'ساعة واحدة' },
-                    { id: '24h', label: 'يوم كامل' },
-                    { id: '7d', label: 'أسبوع' },
-                    { id: 'never', label: 'دائم' },
-                  ].map((exp) => (
-                    <button 
-                      key={exp.id}
-                      onClick={() => setShareConfig({ ...shareConfig, expiration: exp.id })}
-                      className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${
-                        shareConfig.expiration === exp.id 
-                        ? 'bg-slate-900 dark:bg-indigo-600 text-white' 
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'
-                      }`}
-                    >
-                      {exp.label}
-                    </button>
-                  ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800 pb-2">2. صلاحية الرابط:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: '1h', label: 'ساعة' },
+                      { id: '24h', label: 'يوم' },
+                      { id: '7d', label: 'أسبوع' },
+                      { id: 'never', label: 'دائم' },
+                    ].map((exp) => (
+                      <button 
+                        key={exp.id}
+                        onClick={() => setShareConfig({ ...shareConfig, expiration: exp.id })}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${
+                          shareConfig.expiration === exp.id 
+                          ? 'bg-slate-900 dark:bg-indigo-600 text-white shadow-md' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        {exp.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800 pb-2">3. مستوى الوصول:</h4>
+                  <div className="flex gap-2">
+                    {[
+                      { id: 'view', label: 'مشاهدة فقط', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
+                      { id: 'comment', label: 'إضافة ملاحظات', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
+                    ].map((lvl) => (
+                      <button 
+                        key={lvl.id}
+                        onClick={() => setShareConfig({ ...shareConfig, accessLevel: lvl.id })}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black transition-all border ${
+                          shareConfig.accessLevel === lvl.id 
+                          ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400' 
+                          : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={lvl.icon} /></svg>
+                        {lvl.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-4">
+                   <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${shareConfig.passwordProtected ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                      </div>
+                      <h4 className="text-sm font-black text-slate-800 dark:text-white">حماية الرابط بكلمة مرور</h4>
+                   </div>
+                   <button 
+                    onClick={() => setShareConfig({ ...shareConfig, passwordProtected: !shareConfig.passwordProtected })}
+                    className={`w-12 h-6 rounded-full transition-all relative ${shareConfig.passwordProtected ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                   >
+                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${shareConfig.passwordProtected ? 'left-7' : 'left-1'}`}></div>
+                   </button>
+                </div>
+                {shareConfig.passwordProtected && (
+                   <input 
+                    type="password"
+                    value={shareConfig.password}
+                    onChange={(e) => setShareConfig({ ...shareConfig, password: e.target.value })}
+                    placeholder="أدخل كلمة مرور قوية..."
+                    className="w-full px-5 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900/20 font-bold text-xs"
+                   />
+                )}
               </div>
             </div>
 
-            <div className="md:w-64 flex flex-col justify-end">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 mb-6">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">رابط المشاركة:</p>
-                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 mb-4 overflow-hidden">
-                  <p className="text-[9px] font-mono font-bold text-indigo-600 truncate">{generatedLink}</p>
+            <div className="md:w-72 flex flex-col justify-end">
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-700 mb-8 flex-grow">
+                <div className="flex flex-col h-full">
+                  <div className="mb-6">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">معاينة رابط المشاركة:</p>
+                    <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 mb-4 overflow-hidden shadow-inner">
+                      <p className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400 break-all leading-relaxed">{generatedLink}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-auto space-y-3">
+                    <button 
+                      onClick={copyShareLink}
+                      className={`w-full py-4 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-3 ${
+                        isLinkCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-100 dark:shadow-none'
+                      }`}
+                    >
+                      {isLinkCopied ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                          تم النسخ بنجاح!
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                          نسخ الرابط المخصص
+                        </>
+                      )}
+                    </button>
+                    <button className="w-full py-4 bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-black border border-slate-100 dark:border-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-3 shadow-sm">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                      إرسال عبر البريد
+                    </button>
+                  </div>
                 </div>
-                <button 
-                  onClick={copyShareLink}
-                  className={`w-full py-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                    isLinkCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-100'
-                  }`}
-                >
-                  {isLinkCopied ? (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                      تم النسخ!
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                      نسخ الرابط
-                    </>
-                  )}
-                </button>
               </div>
               <button 
                 onClick={() => setShowShareModal(false)}
-                className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-xs hover:bg-slate-200 transition-colors"
+                className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl font-black text-xs hover:bg-slate-200 transition-colors"
               >
-                إغلاق النافذة
+                تجاهل التغييرات
               </button>
             </div>
           </div>
@@ -906,18 +1027,33 @@ const ComplianceView: React.FC = () => {
         </div>
       )}
 
-      {/* Confirm Clear Modal */}
+      {/* Enhanced Confirm Clear Modal */}
       {showConfirmClear && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm p-10 rounded-[3rem] text-center shadow-2xl border border-slate-100 dark:border-slate-800">
-            <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-md:max-w-md p-12 rounded-[3.5rem] text-center shadow-2xl border border-slate-100 dark:border-slate-800 transform scale-100 animate-in zoom-in-95 duration-300">
+            <div className="w-24 h-24 bg-rose-50 dark:bg-rose-900/20 text-rose-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </div>
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2">حذف جميع المخططات؟</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8 text-center px-4">لا يمكن التراجع عن هذا الإجراء، سيتم مسح كافة البيانات المرفوعة.</p>
-            <div className="flex gap-4">
-              <button onClick={() => { setImages([]); setShowConfirmClear(false); setResult(null); }} className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm hover:bg-rose-700 transition-all">تأكيد الحذف</button>
-              <button onClick={() => setShowConfirmClear(false)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-sm transition-all">إلغاء</button>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">تصفير جميع البيانات؟</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-base font-medium mb-10 text-center px-4 leading-relaxed">
+              سيتم حذف كافة المخططات المرفوعة وإيقاف عمليات الرفع الجارية ومسح نتائج التحليل الحالية. لا يمكن التراجع عن هذا الإجراء.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button 
+                onClick={clearAllData} 
+                className="flex-1 py-4 bg-rose-600 text-white rounded-2xl font-black text-sm hover:bg-rose-700 transition-all shadow-xl shadow-rose-200 dark:shadow-none active:scale-95"
+              >
+                تأكيد المسح الشامل
+              </button>
+              <button 
+                onClick={() => setShowConfirmClear(false)} 
+                className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-sm transition-all hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95"
+              >
+                إلغاء التراجع
+              </button>
+            </div>
+            <div className="mt-6 flex items-center justify-center gap-2 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+               <span className="px-2 py-0.5 rounded border border-slate-100 dark:border-slate-800">ESC to cancel</span>
             </div>
           </div>
         </div>
