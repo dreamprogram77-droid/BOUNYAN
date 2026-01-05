@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { analyzeCompliance } from '../services/geminiService';
+import { analyzeCompliance, editBlueprintImage } from '../services/geminiService';
 import { AnalysisResult, ImageData, DetailedFinding } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 
@@ -42,7 +42,7 @@ const CollapsibleSection: React.FC<{
 
   const handleToggle = () => {
     setIsClicked(true);
-    setTimeout(() => setIsClicked(false), 600);
+    setTimeout(() => setIsClicked(false), 500);
     onToggle();
   };
 
@@ -87,11 +87,13 @@ const CollapsibleSection: React.FC<{
               {accentIcon && (
                 <div className="relative flex items-center justify-center">
                   <div className={`transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) transform ${
-                    isOpen ? 'opacity-100 scale-125 rotate-0 text-indigo-500' : 'opacity-40 scale-90 -rotate-12 text-slate-300'
-                  } group-hover:opacity-100 group-hover:scale-[2.1] group-hover:rotate-[15deg] group-hover:text-indigo-600 ${isClicked ? 'animate-[wiggle_0.4s_ease-in-out_infinite] scale-[2.5] text-indigo-400 drop-shadow-[0_0_20px_rgba(79,70,229,0.6)]' : ''}`}>
+                    isOpen ? 'opacity-100 scale-150 rotate-0 text-indigo-500' : 'opacity-40 scale-100 -rotate-12 text-slate-300'
+                  } group-hover:opacity-100 group-hover:scale-[2.5] group-hover:rotate-[20deg] group-hover:text-indigo-600 ${
+                    isClicked ? 'animate-[wiggle_0.4s_ease-in-out_infinite] scale-[3.2] text-indigo-400 drop-shadow-[0_0_25px_rgba(79,70,229,0.8)]' : ''
+                  }`}>
                     {accentIcon}
                   </div>
-                  <div className={`absolute inset-0 bg-indigo-500/10 blur-3xl rounded-full transition-all duration-1000 -z-10 ${isHovered || isOpen ? 'scale-[5] opacity-100' : 'scale-0 opacity-0'}`}></div>
+                  <div className={`absolute inset-0 bg-indigo-500/20 blur-3xl rounded-full transition-all duration-1000 -z-10 ${isHovered || isOpen ? 'scale-[6] opacity-100' : 'scale-0 opacity-0'}`}></div>
                 </div>
               )}
               {shortcut && <ShortcutBadge keys={shortcut} />}
@@ -142,6 +144,37 @@ const ComplianceView: React.FC = () => {
   const [copiedReferenceIndex, setCopiedReferenceIndex] = useState<number | null>(null);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   
+  // Image Editing States
+  const [editImage, setEditImage] = useState<ImageData | null>(null);
+  const [editPrompt, setEditPrompt] = useState('');
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [editedImageUrl, setEditedImageUrl] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editScale, setEditScale] = useState(1);
+
+  // AI Processing Stages State
+  const [analysisStage, setAnalysisStage] = useState(0);
+  const analysisStages = [
+    "جاري قراءة المخططات الهندسية...",
+    "التحقق من بنود كود البناء السعودي (SBC)...",
+    "فحص معايير السلامة ومقاومة الحريق...",
+    "تحليل كفاءة الطاقة والواجهات...",
+    "توليد التوصيات الفنية والحلول البديلة...",
+    "إعداد التقرير النهائي الموثق..."
+  ];
+
+  useEffect(() => {
+    let timer: any;
+    if (loading) {
+      timer = setInterval(() => {
+        setAnalysisStage(prev => (prev + 1) % analysisStages.length);
+      }, 3000);
+    } else {
+      setAnalysisStage(0);
+    }
+    return () => clearInterval(timer);
+  }, [loading]);
+
   const [shareConfig, setShareConfig] = useState({
     reportId: '',
     sections: {
@@ -176,6 +209,7 @@ const ComplianceView: React.FC = () => {
     tasks: true,
     faq: false,
     history: false,
+    imageEditing: false,
   });
 
   const activeReaders = useRef<FileReader[]>([]);
@@ -350,6 +384,43 @@ const ComplianceView: React.FC = () => {
       setError('حدث خطأ فني أثناء تحليل المخططات.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditError(null);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setEditImage({ 
+          base64: (reader.result as string).split(',')[1], 
+          mimeType: file.type,
+          name: file.name 
+        });
+        setEditedImageUrl(null);
+        setEditScale(1);
+      };
+      reader.onerror = () => setEditError('فشل في قراءة الملف.');
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const runImageEdit = async () => {
+    if (!editImage || !editPrompt) return;
+    setIsEditingImage(true);
+    setEditError(null);
+    try {
+      const res = await editBlueprintImage(editImage, editPrompt);
+      if (res) {
+        setEditedImageUrl(res);
+      } else {
+        setEditError('فشل تعديل الصورة.');
+      }
+    } catch (err) {
+      setEditError('حدث خطأ أثناء معالجة الصورة.');
+    } finally {
+      setIsEditingImage(false);
     }
   };
 
@@ -645,6 +716,66 @@ const ComplianceView: React.FC = () => {
 
       {/* Main Results Area */}
       <main className="lg:col-span-8 space-y-10">
+        {loading && (
+          <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-12 md:p-16 border border-indigo-100 dark:border-indigo-900/40 shadow-2xl shadow-indigo-100/30 animate-in fade-in zoom-in-95 duration-500 relative overflow-hidden">
+             <div className="absolute inset-0 bg-indigo-50/20 dark:bg-indigo-900/10 pointer-events-none"></div>
+             <div className="relative z-10 text-center space-y-10">
+               <div className="w-24 h-24 bg-indigo-600 text-white rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-indigo-200 dark:shadow-none relative">
+                  <svg className="w-12 h-12 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  <div className="absolute inset-0 rounded-[2.5rem] border-4 border-indigo-400/30 animate-ping"></div>
+               </div>
+
+               <div>
+                 <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">بُنيان يقوم بالتحليل الآن</h3>
+                 <div className="h-8 overflow-hidden relative max-w-md mx-auto">
+                    <div 
+                      className="transition-all duration-700 transform flex flex-col items-center"
+                      style={{ transform: `translateY(-${analysisStage * 2}rem)` }}
+                    >
+                      {analysisStages.map((stage, idx) => (
+                        <p key={idx} className="h-8 flex items-center text-indigo-600 dark:text-indigo-400 font-bold text-lg">
+                          {stage}
+                        </p>
+                      ))}
+                    </div>
+                 </div>
+               </div>
+
+               <div className="max-w-xl mx-auto">
+                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-4 rounded-full overflow-hidden p-1 shadow-inner">
+                   <div 
+                    className="h-full bg-indigo-600 rounded-full relative transition-all duration-1000 ease-out"
+                    style={{ width: `${((analysisStage + 1) / analysisStages.length) * 100}%` }}
+                   >
+                     <div className="absolute inset-0 bg-white/20 animate-[shimmer_1.5s_infinite_linear]"></div>
+                   </div>
+                 </div>
+                 <div className="mt-4 flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                   <span>مرحلة {analysisStage + 1} من {analysisStages.length}</span>
+                   <span>نظام الذكاء الاصطناعي نشط</span>
+                 </div>
+               </div>
+
+               <div className="pt-6 grid grid-cols-3 gap-4 border-t border-slate-100 dark:border-slate-800 opacity-60">
+                 <div className="flex flex-col items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[9px] font-black text-slate-400 tracking-tighter">SBC Engine V3</span>
+                 </div>
+                 <div className="flex flex-col items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse delay-75"></div>
+                    <span className="text-[9px] font-black text-slate-400 tracking-tighter">Vision Model L4</span>
+                 </div>
+                 <div className="flex flex-col items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse delay-150"></div>
+                    <span className="text-[9px] font-black text-slate-400 tracking-tighter">Real-time KSA Laws</span>
+                 </div>
+               </div>
+             </div>
+          </div>
+        )}
+
         {!result && !loading && (
           <div className="bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] p-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800">
             <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-center mx-auto mb-8 text-slate-300">
@@ -776,6 +907,7 @@ const ComplianceView: React.FC = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={historicalData}>
                       <defs>
+                        {/* Fix duplicate x1 attribute */}
                         <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
                           <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
@@ -831,20 +963,26 @@ const ComplianceView: React.FC = () => {
                   {result.findings && result.findings.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
                       {result.findings.map((finding, idx) => (
-                        <div key={idx} className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 group hover:border-indigo-400 transition-all relative">
+                        <div 
+                          key={idx} 
+                          className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900/50 p-7 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 group hover:border-indigo-300 dark:hover:border-indigo-800 transition-all relative shadow-sm hover:shadow-lg transform hover:-translate-y-1 overflow-hidden"
+                        >
+                          <div className="absolute top-0 right-0 w-1.5 h-full bg-indigo-500/10 group-hover:bg-indigo-500 transition-colors"></div>
                           <div className="flex items-start justify-between mb-4">
-                             <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shadow-lg shadow-indigo-200 transition-transform group-hover:scale-110">
+                             <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-indigo-200 transition-all group-hover:scale-110 group-hover:rotate-6">
                                {finding.imageIndex !== undefined ? finding.imageIndex + 1 : idx + 1}
                              </span>
                              <button 
                                onClick={() => startEditFinding(idx)}
-                               className="opacity-0 group-hover:opacity-100 p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
+                               className="opacity-0 group-hover:opacity-100 p-2 text-indigo-500 hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
                                title="تعديل الملاحظة"
                              >
-                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                              </button>
                           </div>
-                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed">{finding.text}</p>
+                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed pr-2">
+                            {finding.text}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -940,6 +1078,102 @@ const ComplianceView: React.FC = () => {
                       </div>
                     );
                   })}
+                </div>
+              </CollapsibleSection>
+
+              <CollapsibleSection
+                id="image-editing-section"
+                title="مهام تعديل الصور"
+                description="استخدم الذكاء الاصطناعي لتعديل المخططات، إضافة مسارات، أو توضيح تفاصيل هندسية مباشرة."
+                isOpen={openSections.imageEditing}
+                onToggle={() => toggleSection('imageEditing')}
+                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16l4.586-4.586a2.031 2.031 0 012.828 0L16 16m-2-2l1.586-1.586a2.031 2.031 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <div className="space-y-6">
+                    <div className={`relative group border-2 border-dashed rounded-3xl p-10 text-center transition-all duration-500 overflow-hidden ${editImage ? 'bg-indigo-50/20 dark:bg-indigo-900/10 border-indigo-200' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 hover:border-indigo-400'}`}>
+                      <input type="file" accept="image/*" onChange={handleEditImageFile} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                      {editImage ? (
+                        <div className="space-y-4">
+                           <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-indigo-200">
+                             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                           </div>
+                           <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">{editImage.name}</p>
+                           <button onClick={(e) => { e.stopPropagation(); setEditImage(null); }} className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline">إلغاء الصورة</button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="w-16 h-16 bg-white dark:bg-slate-900 text-slate-300 rounded-2xl flex items-center justify-center mx-auto border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-110 transition-transform">
+                             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                          </div>
+                          <div>
+                            <p className="text-slate-900 dark:text-white font-black">ارفع الصورة المراد تعديلها</p>
+                            <p className="text-slate-400 text-xs mt-1">تعديل المخططات، إضافة توضيحات، أو رسم مسارات.</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <textarea
+                        value={editPrompt}
+                        onChange={(e) => setEditPrompt(e.target.value)}
+                        placeholder="أدخل وصفاً دقيقاً للتعديل المطلوب... (مثلاً: أضف مسار هروب باللون الأخضر يربط المكاتب بالمخرج الرئيسي)"
+                        className="w-full p-6 h-36 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl outline-none focus:ring-4 focus:ring-indigo-100 transition-all font-medium text-sm leading-relaxed dark:text-white"
+                      />
+                    </div>
+
+                    <button
+                      onClick={runImageEdit}
+                      disabled={isEditingImage || !editImage || !editPrompt.trim()}
+                      className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-xl shadow-indigo-200 flex items-center justify-center gap-3"
+                    >
+                      {isEditingImage ? (
+                        <>
+                          <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                          <span>جاري التعديل...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>تنفيذ التعديل الذكي</span>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        </>
+                      )}
+                    </button>
+                    {editError && <p className="text-center text-xs font-bold text-rose-500">{editError}</p>}
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-slate-800/40 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 p-8 flex flex-col items-center justify-center min-h-[400px] relative overflow-hidden group/preview">
+                    {editedImageUrl ? (
+                      <div className="w-full h-full relative">
+                         <img 
+                          src={editedImageUrl} 
+                          alt="المعاينة المعدلة" 
+                          className="w-full h-full object-contain rounded-2xl transition-transform duration-500 cursor-zoom-in" 
+                          style={{ transform: `scale(${editScale})` }}
+                          onClick={() => setEditScale(editScale === 1 ? 1.5 : 1)}
+                         />
+                         <div className="absolute bottom-4 left-4 flex gap-2">
+                           <a href={editedImageUrl} download="edited_blueprint.png" className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-3 rounded-xl shadow-xl hover:bg-indigo-600 hover:text-white transition-all text-slate-700 dark:text-slate-200" title="تحميل">
+                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                           </a>
+                         </div>
+                      </div>
+                    ) : isEditingImage ? (
+                      <div className="text-center space-y-4 animate-pulse">
+                        <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-[2rem] flex items-center justify-center mx-auto text-indigo-500">
+                           <svg className="w-10 h-10 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        </div>
+                        <p className="text-sm font-black text-slate-400">يتم الآن الرسم بواسطة الذكاء الاصطناعي</p>
+                      </div>
+                    ) : (
+                      <div className="text-center opacity-30">
+                        <svg className="w-20 h-20 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <p className="text-sm font-bold tracking-widest uppercase">Result Preview</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CollapsibleSection>
 
