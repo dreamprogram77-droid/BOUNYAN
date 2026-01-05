@@ -5,12 +5,14 @@ import { AnalysisResult, ImageData } from "../types";
 const SBC_SYSTEM_INSTRUCTION = `
 أنت خبير في كود البناء السعودي (SBC) والأنظمة الهندسية في المملكة العربية السعودية.
 مهمتك هي مراجعة المخططات الهندسية والتحقق من امتثالها للمعايير.
-يجب أن تكون إجاباتك دقيقة، مهنية، وباللغة العربية الفصحى.
+يجب أن تكون إجاباتك دقيقة، مهنية، وباللغة العربية الفصح الفصحى.
 حلل المخططات المرفوعة بناءً على:
 1. معايير السلامة والحماية من الحريق.
 2. المتطلبات المعمارية والإنشائية.
 3. كفاءة الطاقة.
 4. الوصول الشامل لذوي الإعاقة.
+
+لكل ملاحظة (finding)، حدد حالتها (compliant, warning, non-compliant) وصنفها (Category) مثل: "السلامة"، "التصميم الإنشائي"، "كفاءة الطاقة".
 `;
 
 export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisResult> => {
@@ -25,7 +27,7 @@ export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisRe
     contents: {
       parts: [
         ...imageParts,
-        { text: "حلل هذه المخططات الهندسية بدقة بناءً على كود البناء السعودي. قدم النتيجة بتنسيق JSON حصرياً." }
+        { text: "حلل هذه المخططات الهندسية بدقة بناءً على كود البناء السعودي. قدم النتيجة بتنسيق JSON حصرياً مع تصنيف كل ملاحظة وحالتها." }
       ]
     },
     config: {
@@ -46,8 +48,11 @@ export const analyzeCompliance = async (images: ImageData[]): Promise<AnalysisRe
               type: Type.OBJECT,
               properties: {
                 text: { type: Type.STRING },
+                status: { type: Type.STRING, enum: ['compliant', 'warning', 'non-compliant'] },
+                category: { type: Type.STRING },
                 imageIndex: { type: Type.INTEGER }
-              }
+              },
+              required: ["text", "status"]
             }
           }
         },

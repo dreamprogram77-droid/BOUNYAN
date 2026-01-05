@@ -503,6 +503,47 @@ const ComplianceView: React.FC = () => {
     }
   };
 
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'compliant':
+        return { 
+          color: 'emerald', 
+          label: 'مطابق', 
+          icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>,
+          bg: 'bg-emerald-50 dark:bg-emerald-900/30',
+          text: 'text-emerald-600 dark:text-emerald-400',
+          border: 'border-emerald-100 dark:border-emerald-900/50'
+        };
+      case 'warning':
+        return { 
+          color: 'amber', 
+          label: 'تحذير', 
+          icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+          bg: 'bg-amber-50 dark:bg-amber-900/30',
+          text: 'text-amber-600 dark:text-amber-400',
+          border: 'border-amber-100 dark:border-amber-900/50'
+        };
+      case 'non-compliant':
+        return { 
+          color: 'rose', 
+          label: 'غير مطابق', 
+          icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>,
+          bg: 'bg-rose-50 dark:bg-rose-900/30',
+          text: 'text-rose-600 dark:text-rose-400',
+          border: 'border-rose-100 dark:border-rose-900/50'
+        };
+      default:
+        return { 
+          color: 'indigo', 
+          label: 'مراجعة', 
+          icon: null,
+          bg: 'bg-indigo-50 dark:bg-indigo-900/30',
+          text: 'text-indigo-600 dark:text-indigo-400',
+          border: 'border-indigo-100 dark:border-indigo-900/50'
+        };
+    }
+  };
+
   const chartData = result ? [{ name: 'امتثال', value: result.score }, { name: 'فجوة', value: 100 - result.score }] : [];
 
   const overallUploadProgress = uploadingFiles.length > 0 
@@ -907,7 +948,6 @@ const ComplianceView: React.FC = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={historicalData}>
                       <defs>
-                        {/* Fix duplicate x1 attribute */}
                         <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
                           <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
@@ -962,29 +1002,45 @@ const ComplianceView: React.FC = () => {
                   <div className="prose prose-slate dark:prose-invert max-w-none text-lg leading-relaxed whitespace-pre-wrap">{result.details}</div>
                   {result.findings && result.findings.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                      {result.findings.map((finding, idx) => (
-                        <div 
-                          key={idx} 
-                          className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900/50 p-7 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 group hover:border-indigo-300 dark:hover:border-indigo-800 transition-all relative shadow-sm hover:shadow-lg transform hover:-translate-y-1 overflow-hidden"
-                        >
-                          <div className="absolute top-0 right-0 w-1.5 h-full bg-indigo-500/10 group-hover:bg-indigo-500 transition-colors"></div>
-                          <div className="flex items-start justify-between mb-4">
-                             <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-indigo-200 transition-all group-hover:scale-110 group-hover:rotate-6">
-                               {finding.imageIndex !== undefined ? finding.imageIndex + 1 : idx + 1}
-                             </span>
-                             <button 
-                               onClick={() => startEditFinding(idx)}
-                               className="opacity-0 group-hover:opacity-100 p-2 text-indigo-500 hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
-                               title="تعديل الملاحظة"
-                             >
-                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                             </button>
+                      {result.findings.map((finding, idx) => {
+                        const status = getStatusInfo(finding.status);
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900/50 p-7 rounded-2xl border ${status.border} group hover:border-indigo-300 dark:hover:border-indigo-800 transition-all relative shadow-sm hover:shadow-lg transform hover:-translate-y-1 overflow-hidden`}
+                          >
+                            <div className={`absolute top-0 right-0 w-1.5 h-full ${status.bg} group-hover:bg-indigo-500 transition-colors`}></div>
+                            <div className="flex items-start justify-between mb-4">
+                               <div className="flex items-center gap-3">
+                                 <span className="bg-indigo-600 text-white w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-indigo-200 transition-all group-hover:scale-110 group-hover:rotate-6">
+                                   {finding.imageIndex !== undefined ? finding.imageIndex + 1 : idx + 1}
+                                 </span>
+                                 <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${status.bg} ${status.text} text-[10px] font-black uppercase tracking-widest`}>
+                                   {status.icon}
+                                   {status.label}
+                                 </div>
+                               </div>
+                               <div className="flex items-center gap-2">
+                                 {finding.category && (
+                                   <span className="text-[10px] font-black text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-lg">
+                                     {finding.category}
+                                   </span>
+                                 )}
+                                 <button 
+                                   onClick={() => startEditFinding(idx)}
+                                   className="opacity-0 group-hover:opacity-100 p-2 text-indigo-500 hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
+                                   title="تعديل الملاحظة"
+                                 >
+                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                 </button>
+                               </div>
+                            </div>
+                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed pr-2">
+                              {finding.text}
+                            </p>
                           </div>
-                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200 leading-relaxed pr-2">
-                            {finding.text}
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1087,7 +1143,7 @@ const ComplianceView: React.FC = () => {
                 description="استخدم الذكاء الاصطناعي لتعديل المخططات، إضافة مسارات، أو توضيح تفاصيل هندسية مباشرة."
                 isOpen={openSections.imageEditing}
                 onToggle={() => toggleSection('imageEditing')}
-                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16l4.586-4.586a2.031 2.031 0 012.828 0L16 16m-2-2l1.586-1.586a2.031 2.031 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                accentIcon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>}
                 icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">

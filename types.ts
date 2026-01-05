@@ -14,6 +14,8 @@ export enum AppMode {
 
 export interface DetailedFinding {
   text: string;
+  status: 'compliant' | 'warning' | 'non-compliant';
+  category?: string;
   imageIndex?: number;
 }
 
