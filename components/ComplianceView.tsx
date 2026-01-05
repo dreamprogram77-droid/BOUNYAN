@@ -129,8 +129,11 @@ const ComplianceView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [copiedRecIndex, setCopiedRecIndex] = useState<number | null>(null);
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
   
   // State for editing findings
   const [editingFindingIndex, setEditingFindingIndex] = useState<number | null>(null);
@@ -172,6 +175,7 @@ const ComplianceView: React.FC = () => {
       if (e.key === 'Escape') {
         setShowConfirmClear(false);
         setEditingFindingIndex(null);
+        setShowShareModal(false);
       }
     };
 
@@ -281,6 +285,21 @@ const ComplianceView: React.FC = () => {
     navigator.clipboard.writeText(text).then(() => {
       setCopiedRecIndex(index);
       setTimeout(() => setCopiedRecIndex(null), 1500);
+    });
+  };
+
+  const handleShareReport = () => {
+    const reportId = Math.random().toString(36).substring(2, 12).toUpperCase();
+    const link = `${window.location.origin}/report/${reportId}`;
+    setGeneratedLink(link);
+    setIsLinkCopied(false);
+    setShowShareModal(true);
+  };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(generatedLink).then(() => {
+      setIsLinkCopied(true);
+      setTimeout(() => setIsLinkCopied(false), 2000);
     });
   };
 
@@ -437,6 +456,23 @@ const ComplianceView: React.FC = () => {
 
         {result && (
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <div className="flex justify-end gap-3 print:hidden">
+              <button 
+                onClick={handleShareReport}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-2xl text-xs font-black hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                مشاركة التقرير
+              </button>
+              <button 
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-black hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                طباعة / PDF
+              </button>
+            </div>
+
             <CollapsibleSection
               id="summary-section"
               title="ملخص الامتثال"
@@ -615,6 +651,41 @@ const ComplianceView: React.FC = () => {
            </div>
         </div>
       </main>
+
+      {/* Share Report Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xl p-10 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 relative">
+            <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-3xl flex items-center justify-center mx-auto mb-8">
+               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 text-center">مشاركة التقرير الفني</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-8 text-center px-8 leading-relaxed">تم توليد رابط فريد للتقرير الحالي. يمكنك مشاركته مع الفريق أو العملاء للوصول المباشر للنتائج.</p>
+            
+            <div className="flex gap-2 p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl mb-8 items-center">
+              <input 
+                type="text" 
+                readOnly 
+                value={generatedLink}
+                className="flex-1 bg-transparent border-none outline-none text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300 px-4"
+              />
+              <button 
+                onClick={copyShareLink}
+                className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${isLinkCopied ? 'bg-emerald-600 text-white' : 'bg-slate-900 dark:bg-indigo-600 text-white hover:bg-indigo-700'}`}
+              >
+                {isLinkCopied ? 'تم النسخ!' : 'نسخ الرابط'}
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setShowShareModal(false)}
+              className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl font-black text-sm"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Finding Modal */}
       {editingFindingIndex !== null && (
