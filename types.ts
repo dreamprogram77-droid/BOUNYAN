@@ -66,3 +66,10 @@ export interface Order {
   status: 'pending' | 'processing' | 'completed' | 'rejected';
   projectName: string;
 }
+
+export interface Task {
+  id: string;
+  text: string;
+  completed: boolean;
+  projectId?: string;
+}

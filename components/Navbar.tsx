@@ -36,6 +36,7 @@ const Navbar: React.FC<NavbarProps> = ({
     { id: 'search', label: 'البحث التنظيمي', mode: AppMode.CLIENT_DASHBOARD },
     { id: 'editor', label: 'محرر المخططات', mode: AppMode.CLIENT_DASHBOARD },
     { id: 'voice', label: 'المساعد الصوتي', mode: AppMode.CLIENT_DASHBOARD },
+    { id: 'profile', label: 'الملف الشخصي', mode: AppMode.CLIENT_DASHBOARD },
   ];
 
   const toolsLinks = [
@@ -193,7 +194,7 @@ const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <div className="flex items-center gap-4">
                 <button 
-                  onClick={() => setMode(AppMode.CLIENT_DASHBOARD, 'projects')}
+                  onClick={() => setMode(AppMode.CLIENT_DASHBOARD, 'profile')}
                   className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black shadow-sm"
                 >
                   أ
