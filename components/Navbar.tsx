@@ -27,6 +27,7 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const publicLinks = [
     { id: AppMode.HOME, label: 'الرئيسية' },
+    { id: AppMode.VOICE_ASSISTANT, label: 'المساعد الصوتي' },
     { id: AppMode.PRICING, label: 'الأسعار' },
   ];
 

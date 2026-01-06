@@ -29,8 +29,8 @@ const InteractiveIcon: React.FC<InteractiveIconProps> = ({ icon, activeColor = "
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsAnimating(true);
-    // Visual ripple effect duration
-    setTimeout(() => setIsAnimating(false), 600);
+    // Visual feedback duration
+    setTimeout(() => setIsAnimating(false), 500);
   };
 
   return (
@@ -39,18 +39,18 @@ const InteractiveIcon: React.FC<InteractiveIconProps> = ({ icon, activeColor = "
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       title={tooltip}
-      className={`cursor-pointer p-2 rounded-xl shadow-sm transition-all duration-500 relative group/icon flex items-center justify-center ${
-        isAnimating ? 'scale-90 rotate-12' : 'hover:scale-125 hover:-rotate-12'
-      } ${activeColor} text-white ${className} ${isHovered ? 'shadow-lg shadow-indigo-500/40 ring-2 ring-white/20' : ''}`}
+      className={`cursor-pointer p-2.5 rounded-xl shadow-sm transition-all duration-300 relative group/icon flex items-center justify-center ${
+        isAnimating ? 'scale-90 rotate-6' : 'hover:scale-115 hover:-rotate-3 active:scale-95'
+      } ${activeColor} text-white ${className} ${isHovered ? 'shadow-lg shadow-indigo-500/30 ring-2 ring-white/30' : ''}`}
     >
-      <div className={`relative z-10 transition-transform duration-500 ${isHovered ? 'animate-pulse' : ''}`}>
+      <div className={`relative z-10 transition-transform duration-300 ${isHovered ? 'animate-pulse' : ''}`}>
         {icon}
       </div>
       {isAnimating && (
-        <div className="absolute inset-0 rounded-xl animate-ping bg-white/60"></div>
+        <div className="absolute inset-0 rounded-xl animate-ping bg-white/40"></div>
       )}
-      {/* Background glow on hover */}
-      <div className={`absolute inset-0 rounded-xl bg-white/20 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}></div>
+      {/* Background overlay on hover */}
+      <div className={`absolute inset-0 rounded-xl bg-white/10 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}></div>
     </div>
   );
 };
@@ -114,12 +114,12 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
           </div>
           <div className="text-right">
             <div className="flex items-center gap-3">
+              {interactiveHeaderIcon}
               <h3 className={`font-black text-xl md:text-2xl transition-all duration-500 ${
                 isOpen ? 'text-slate-900 dark:text-white translate-x-[-2px]' : 'text-slate-600 dark:text-slate-400'
               }`}>
                 {title}
               </h3>
-              {interactiveHeaderIcon}
               {accentIcon && (
                 <div className="relative flex items-center justify-center">
                   <div className={`transition-all duration-500 transform ${
@@ -739,92 +739,4 @@ const ComplianceView: React.FC = () => {
                     />
                     التوصيات الهندسية (Recommendations)
                   </h4>
-                  <ul className="space-y-3">{result.recommendations.map((rec, i) => (<li key={i} className="flex items-start gap-3 text-sm font-bold text-slate-700 dark:text-slate-300 leading-relaxed"><div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0"></div>{rec}</li>))}</ul>
-                </div>
-                <div className="bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white mb-5 flex items-center gap-3">
-                    <InteractiveIcon 
-                      icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>} 
-                      activeColor="bg-slate-700" 
-                      tooltip="الأكواد المرجعية" 
-                    />
-                    المراجع النظامية (SBC References)
-                  </h4>
-                  <div className="flex flex-wrap gap-2">{result.references.map((ref, i) => (<span key={i} className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-700 rounded-xl text-[9px] font-black text-slate-500 shadow-sm">{ref}</span>))}</div>
-                </div>
-              </div>
-            </div>
-          </CollapsibleSection>
-
-          {/* Tasks Section - Positioned before FAQ */}
-          <CollapsibleSection
-            id="tasks"
-            title="المهام والمتابعة (Tasks)"
-            description="إدارة المهام الهندسية المرتبطة بالمشروع"
-            isOpen={activeSections.includes('tasks')}
-            onToggle={() => toggleSection('tasks')}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>}
-            interactiveHeaderIcon={
-              <InteractiveIcon 
-                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>} 
-                activeColor="bg-emerald-600" 
-                tooltip="إدارة المهام" 
-              />
-            }
-          >
-            <div className="space-y-6">
-              <div className="flex gap-3">
-                <input type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addTask()} placeholder="إضافة مهمة هندسية..." className="flex-1 px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-4 focus:ring-indigo-100 font-medium text-sm dark:text-white" />
-                <button onClick={addTask} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 transition-all shadow-md active:scale-95">إضافة</button>
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                {tasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl group transition-all hover:shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => toggleTask(task.id)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 text-transparent'}`}><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg></button>
-                      <span className={`text-base font-bold ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{task.text}</span>
-                    </div>
-                    <button onClick={() => removeTask(task.id)} className="p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                  </div>
-                ))}
-                {tasks.length === 0 && <div className="text-center py-6 text-slate-400 font-bold italic border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl text-xs">لا توجد مهام حالياً.</div>}
-              </div>
-            </div>
-          </CollapsibleSection>
-        </>
-      )}
-
-      <CollapsibleSection
-        id="faq"
-        title="الأسئلة الشائعة"
-        description="إجابات سريعة حول عملية الفحص"
-        isOpen={activeSections.includes('faq')}
-        onToggle={() => toggleSection('faq')}
-        icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-        interactiveHeaderIcon={
-          <InteractiveIcon 
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} 
-            activeColor="bg-indigo-600" 
-            tooltip="مركز الأسئلة" 
-          />
-        }
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { q: 'ما هي درجة الامتثال؟', a: 'مؤشر مئوي يوضح مدى مطابقة المخططات لمتطلبات كود البناء السعودي (SBC).' },
-            { q: 'كم تستغرق عملية التحليل؟', a: 'تستغرق العملية عادة ما بين 10 إلى 30 ثانية اعتماداً على عدد المخططات.' },
-            { q: 'هل يمكنني التحميل بصيغة PDF؟', a: 'نعم، يمكنك طباعة النتائج أو حفظها بصيغة PDF موثقة لمكتبك.' },
-            { q: 'هل يدعم الأنظمة البلدية؟', a: 'نعم، بُنيان مصمم للالتزام بكافة اللوائح البلدية المحلية في المملكة.' }
-          ].map((item, i) => (
-            <div key={i} className="p-6 bg-slate-50 dark:bg-slate-800/40 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-50 transition-all group">
-              <h4 className="text-base font-black text-slate-900 dark:text-white mb-2 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-indigo-600 group-hover:scale-150 transition-all"></span>{item.q}</h4>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed pr-4">{item.a}</p>
-            </div>
-          ))}
-        </div>
-      </CollapsibleSection>
-    </div>
-  );
-};
-
-export default ComplianceView;
+                  <ul className="space-
