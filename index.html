@@ -10,14 +10,20 @@
     <style>
       :root {
         --font-main: 'Amiri', serif;
+        /* نظام تحجيم الخطوط الذكي */
+        --app-base-size: 16px;
+        --text-scale: 1;
       }
+      
       body {
         font-family: var(--font-main);
         background-color: #fcfdfe;
         color: #0f172a;
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
-        transition: background-color 0.3s ease, color 0.3s ease, font-size 0.2s ease;
+        /* تطبيق حجم الخط الأساسي على الجسم */
+        font-size: var(--app-base-size);
+        transition: background-color 0.3s ease, color 0.3s ease, font-size 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         padding-top: 80px; /* Offset for fixed navbar */
       }
       
@@ -25,11 +31,6 @@
         background-color: #020617;
         color: #f1f5f9;
       }
-
-      /* أحجام الخطوط المخصصة */
-      .app-font-small { font-size: 14px; }
-      .app-font-default { font-size: 16px; }
-      .app-font-large { font-size: 18px; }
 
       /* نمط الشبكة الهندسية */
       .blueprint-grid {
@@ -51,14 +52,11 @@
         line-height: 1.1;
       }
 
+      /* الفقرات تعتمد على الحجم الأساسي بنسبة 1.1 */
       p {
         line-height: 1.6;
         font-size: 1.1em;
       }
-
-      /* Adjustment for scaling child components */
-      .app-font-small p { font-size: 1.05em; }
-      .app-font-large p { font-size: 1.15em; }
 
       ::selection {
         background-color: #4f46e5;

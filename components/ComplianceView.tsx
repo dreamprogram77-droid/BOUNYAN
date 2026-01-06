@@ -33,13 +33,11 @@ const InteractiveIcon: React.FC<InteractiveIconProps> = ({ icon, activeColor = "
     setIsAnimating(true);
     if (onClick) onClick(e);
     
-    // If it's a copy action, show a temporary success state
     if (tooltip?.includes("نسخ")) {
       setShowCopied(true);
       setTimeout(() => setShowCopied(false), 2000);
     }
 
-    // Visual pulse/ripple duration
     setTimeout(() => setIsAnimating(false), 600);
   };
 
@@ -61,7 +59,6 @@ const InteractiveIcon: React.FC<InteractiveIconProps> = ({ icon, activeColor = "
       {isAnimating && (
         <div className="absolute inset-0 rounded-xl animate-ping bg-white/60"></div>
       )}
-      {/* Dynamic Background Glow */}
       <div className={`absolute inset-0 rounded-xl bg-white/20 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}></div>
     </div>
   );
@@ -195,6 +192,8 @@ const ComplianceView: React.FC = () => {
   const [newTaskText, setNewTaskText] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [projectName, setProjectName] = useState('مشروع افتراضي جديد');
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [taskProjectFilter, setTaskProjectFilter] = useState<string>('all');
   
   const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 });
   const headerContainerRef = useRef<HTMLDivElement>(null);
@@ -204,6 +203,7 @@ const ComplianceView: React.FC = () => {
   
   const [tasks, setTasks] = useState<Task[]>([]);
   const [auditHistory, setAuditHistory] = useState<AuditRecord[]>([]);
+  const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -233,6 +233,7 @@ const ComplianceView: React.FC = () => {
       setTasks(savedTasks);
     }
     setAuditHistory(databaseService.getAudits());
+    setAvailableProjects(databaseService.getProjects());
   }, []);
 
   useEffect(() => {
@@ -324,6 +325,7 @@ const ComplianceView: React.FC = () => {
       const res = await analyzeCompliance(images, auditType);
       setResult(res);
       const projectId = `proj-${Date.now()}`;
+      setCurrentProjectId(projectId);
       databaseService.saveProject({
         id: projectId,
         name: projectName,
@@ -340,6 +342,8 @@ const ComplianceView: React.FC = () => {
         result: res
       });
       setAuditHistory(databaseService.getAudits());
+      setAvailableProjects(databaseService.getProjects());
+      setTaskProjectFilter(projectId);
       setActiveSections(['results', 'analytics', 'tasks']);
     } catch (err) {
       setError("حدث خطأ أثناء التحليل. تأكد من جودة الصور والمحاولة لاحقاً.");
@@ -358,7 +362,13 @@ const ComplianceView: React.FC = () => {
 
   const addTask = () => {
     if (!newTaskText.trim()) return;
-    setTasks([...tasks, { id: Date.now().toString(), text: newTaskText, completed: false }]);
+    const targetProjectId = taskProjectFilter !== 'all' ? taskProjectFilter : currentProjectId;
+    setTasks([...tasks, { 
+      id: Date.now().toString(), 
+      text: newTaskText, 
+      completed: false,
+      projectId: targetProjectId || undefined
+    }]);
     setNewTaskText('');
   };
 
@@ -391,6 +401,10 @@ const ComplianceView: React.FC = () => {
     { name: 'تحذير', value: (result.findings || []).filter(f => f.status === 'warning').length || 3, color: '#f59e0b' },
     { name: 'غير مطابق', value: (result.findings || []).filter(f => f.status === 'non-compliant').length || 2, color: '#f43f5e' }
   ] : [];
+
+  const filteredTasks = taskProjectFilter === 'all' 
+    ? tasks 
+    : tasks.filter(t => t.projectId === taskProjectFilter);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto py-6 px-4">
@@ -439,36 +453,45 @@ const ComplianceView: React.FC = () => {
           </div>
 
           {uploadingFiles.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 border-2 border-indigo-50 dark:border-indigo-900/40 p-5 rounded-2xl animate-in slide-in-from-top-4 duration-500 shadow-lg relative overflow-hidden group">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4 relative z-10">
-                <div className="flex items-center gap-4">
+            <div className="bg-white dark:bg-slate-900 border-2 border-indigo-50 dark:border-indigo-900/40 p-6 rounded-[2.5rem] animate-in slide-in-from-top-4 duration-500 shadow-2xl relative overflow-hidden group">
+              <div className="flex justify-between items-center mb-5 relative z-10">
+                <div className="flex items-center gap-5">
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full border-3 border-indigo-50 dark:border-indigo-900/30 flex items-center justify-center">
-                       <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{uploadingFiles.length}</span>
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center border-2 border-indigo-100 dark:border-indigo-800">
+                       <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{uploadingFiles.length}</span>
                     </div>
-                    <div className="absolute inset-0 rounded-full border-3 border-indigo-600 border-t-transparent animate-spin"></div>
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 rounded-full border-2 border-white dark:border-slate-900 animate-pulse"></div>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-black text-slate-900 dark:text-white block">جاري الرفع...</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{overallProgress}%</span>
+                    <span className="text-sm font-black text-slate-900 dark:text-white block uppercase tracking-tight">إجمالي التقدم (Overall Progress)</span>
+                    <div className="flex items-center gap-2">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">تحميل المخططات الهندسية</span>
+                       <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                       <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{overallProgress}%</span>
+                    </div>
                   </div>
                 </div>
                 
                 <button 
                   onClick={cancelAllUploads}
-                  className="flex items-center gap-2 px-4 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl text-[10px] font-black hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-95 group/cancel"
+                  className="flex items-center gap-2.5 px-5 py-2.5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-black hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-95 group/cancel"
                 >
-                  <svg className="w-3.5 h-3.5 group-hover/cancel:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-                  إلغاء الكل
+                  <svg className="w-4 h-4 group-hover/cancel:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                  إلغاء الرفع
                 </button>
               </div>
               
-              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden relative">
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-4 rounded-full overflow-hidden relative border-2 border-slate-50 dark:border-slate-800">
                 <div 
-                  className="bg-indigo-600 h-full transition-all duration-700 ease-out shadow-sm"
+                  className="bg-indigo-600 h-full transition-all duration-700 ease-out shadow-[0_0_15px_rgba(79,70,229,0.4)] relative"
                   style={{ width: `${overallProgress}%` }}
-                ></div>
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_2s_infinite]"></div>
+                >
+                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_2s_infinite]"></div>
+                </div>
+              </div>
+              <div className="mt-3 flex justify-between px-1">
+                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">SBC Data Sync</span>
+                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Cloud Persistence</span>
               </div>
             </div>
           )}
@@ -595,7 +618,6 @@ const ComplianceView: React.FC = () => {
             interactiveHeaderIcon={<InteractiveIcon icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>} activeColor="bg-indigo-600" tooltip="عرض التحليلات البيانية" />}
           >
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Score Over Time Chart */}
               <div className="lg:col-span-8 bg-slate-50 dark:bg-slate-800/40 p-6 md:p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
                 <div className="flex justify-between items-center mb-8">
                   <h4 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-3">
@@ -653,7 +675,6 @@ const ComplianceView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Finding Distribution Pie Chart */}
               <div className="lg:col-span-4 bg-slate-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden flex flex-col items-center justify-center">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                 <h4 className="text-sm font-black mb-8 flex items-center gap-3 relative z-10 self-start">
@@ -805,21 +826,45 @@ const ComplianceView: React.FC = () => {
             }
           >
             <div className="space-y-6">
+              <div className="flex flex-col md:flex-row gap-4 mb-6">
+                 <div className="flex-1">
+                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 mr-1">تصفية حسب المشروع</label>
+                   <select 
+                     value={taskProjectFilter} 
+                     onChange={(e) => setTaskProjectFilter(e.target.value)}
+                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-4 focus:ring-indigo-100 font-bold text-xs dark:text-white appearance-none"
+                   >
+                     <option value="all">جميع المشاريع</option>
+                     {availableProjects.map(p => (
+                       <option key={p.id} value={p.id}>{p.name}</option>
+                     ))}
+                   </select>
+                 </div>
+              </div>
+
               <div className="flex gap-3">
                 <input type="text" value={newTaskText} onChange={(e) => setNewTaskText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addTask()} placeholder="إضافة مهمة هندسية..." className="flex-1 px-5 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-4 focus:ring-indigo-100 font-medium text-sm dark:text-white" />
                 <button onClick={addTask} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 transition-all shadow-md active:scale-95">إضافة</button>
               </div>
+              
               <div className="grid grid-cols-1 gap-2">
-                {tasks.map(task => (
+                {filteredTasks.map(task => (
                   <div key={task.id} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl group transition-all hover:shadow-sm">
                     <div className="flex items-center gap-3">
                       <button onClick={() => toggleTask(task.id)} className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 text-transparent'}`}><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg></button>
-                      <span className={`text-base font-bold ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{task.text}</span>
+                      <div className="flex flex-col">
+                        <span className={`text-base font-bold ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{task.text}</span>
+                        {task.projectId && (
+                          <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-0.5">
+                            {availableProjects.find(p => p.id === task.projectId)?.name || 'مشروع غير موجود'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <button onClick={() => removeTask(task.id)} className="p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                   </div>
                 ))}
-                {tasks.length === 0 && <div className="text-center py-6 text-slate-400 font-bold italic border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl text-xs">لا توجد مهام حالياً.</div>}
+                {filteredTasks.length === 0 && <div className="text-center py-6 text-slate-400 font-bold italic border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl text-xs">لا توجد مهام لهذا الاختيار حالياً.</div>}
               </div>
             </div>
           </CollapsibleSection>
@@ -845,4 +890,18 @@ const ComplianceView: React.FC = () => {
           {[
             { q: 'ما هي درجة الامتثال؟', a: 'مؤشر مئوي يوضح مدى مطابقة المخططات لمتطلبات كود البناء السعودي (SBC).' },
             { q: 'كم تستغرق عملية التحليل؟', a: 'تستغرق العملية عادة ما بين 10 إلى 30 ثانية اعتماداً على عدد المخطط.' },
-            { q: 'هل يمكنني التحميل بصيغة PDF؟', a: 'ن
+            { q: 'هل يمكنني التحميل بصيغة PDF؟', a: 'نعم، يمكنك طباعة النتائج أو حفظها بصيغة PDF موثقة لمكتبك.' },
+            { q: 'هل يدعم الأنظمة البلدية؟', a: 'نعم، بُنيان مصمم للالتزام بكافة اللوائح البلدية المحلية في المملكة.' }
+          ].map((item, i) => (
+            <div key={i} className="p-6 bg-slate-50 dark:bg-slate-800/40 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 hover:border-indigo-50 transition-all group">
+              <h4 className="text-base font-black text-slate-900 dark:text-white mb-2 flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-indigo-600 group-hover:scale-150 transition-all"></span>{item.q}</h4>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed pr-4">{item.a}</p>
+            </div>
+          ))}
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+};
+
+export default ComplianceView;

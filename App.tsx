@@ -56,6 +56,23 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
+  // تطبيق نظام الخطوط المتناسق باستخدام متغيرات CSS
+  useEffect(() => {
+    localStorage.setItem('bunyan_font_size', fontSize);
+    const sizeMap = {
+      small: '14px',
+      default: '16px',
+      large: '18px'
+    };
+    
+    // تحديث المتغير الأساسي في ملف CSS
+    document.documentElement.style.setProperty('--app-base-size', sizeMap[fontSize]);
+    
+    // التأكد من أن جميع العناصر ترث الحجم الجديد بشكل طبيعي
+    // عبر تحديث حجم الخط في document.body كنسخة احتياطية
+    document.body.style.fontSize = sizeMap[fontSize];
+  }, [fontSize]);
+
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
   const handleLoginSuccess = () => {
@@ -110,7 +127,7 @@ const App: React.FC = () => {
   const isDashboard = mode === AppMode.CLIENT_DASHBOARD;
 
   return (
-    <div className={`min-h-screen flex flex-col font-['Amiri'] transition-all duration-300 ${isDashboard ? 'bg-white dark:bg-slate-950' : 'dark:bg-slate-950 dark:text-slate-100'} app-font-${fontSize}`} dir="rtl">
+    <div className={`min-h-screen flex flex-col font-['Amiri'] transition-all duration-300 ${isDashboard ? 'bg-white dark:bg-slate-950' : 'dark:bg-slate-950 dark:text-slate-100'}`} dir="rtl">
       <Navbar 
         currentMode={mode} 
         setMode={protectedNavigate} 
