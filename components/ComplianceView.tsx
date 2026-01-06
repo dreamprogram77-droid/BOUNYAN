@@ -31,7 +31,10 @@ const InteractiveIcon: React.FC<InteractiveIconProps> = ({ icon, activeColor = "
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsAnimating(true);
-    if (onClick) onClick(e);
+    
+    if (onClick) {
+      onClick(e);
+    }
     
     if (tooltip?.includes("نسخ")) {
       setShowCopied(true);
@@ -46,20 +49,22 @@ const InteractiveIcon: React.FC<InteractiveIconProps> = ({ icon, activeColor = "
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      title={showCopied ? "تم النسخ!" : tooltip}
-      className={`cursor-pointer p-2 rounded-xl shadow-sm transition-all duration-500 relative group/icon flex items-center justify-center ${
+      title={showCopied ? "تم النسخ بنجاح!" : tooltip}
+      className={`cursor-pointer p-2.5 rounded-2xl shadow-sm transition-all duration-500 relative group/icon flex items-center justify-center ${
         isAnimating ? 'scale-90 rotate-12' : 'hover:scale-125 hover:-rotate-6 active:scale-95'
-      } ${showCopied ? 'bg-emerald-500' : activeColor} text-white ${className} ${isHovered ? 'shadow-lg shadow-indigo-500/40 ring-2 ring-white/30' : ''}`}
+      } ${showCopied ? 'bg-emerald-500 shadow-emerald-200' : activeColor} text-white ${className} ${isHovered ? 'shadow-lg shadow-indigo-500/40 ring-2 ring-white/30' : ''}`}
     >
       <div className={`relative z-10 transition-transform duration-500 ${isHovered ? 'scale-110' : ''}`}>
         {showCopied ? (
-          <svg className="w-4 h-4 animate-in zoom-in duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+          <svg className="w-4 h-4 animate-in zoom-in duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+          </svg>
         ) : icon}
       </div>
       {isAnimating && (
-        <div className="absolute inset-0 rounded-xl animate-ping bg-white/60"></div>
+        <div className="absolute inset-0 rounded-2xl animate-ping bg-white/60"></div>
       )}
-      <div className={`absolute inset-0 rounded-xl bg-white/20 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}></div>
+      <div className={`absolute inset-0 rounded-2xl bg-white/20 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}></div>
     </div>
   );
 };
@@ -586,24 +591,74 @@ const ComplianceView: React.FC = () => {
       {result && (
         <>
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-1000">
-            <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[2.5rem] border-2 border-indigo-50 dark:border-indigo-900/20 shadow-2xl relative overflow-hidden group">
-              <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 relative z-10">
-                <div className="shrink-0 text-center space-y-2">
-                  <div className="relative inline-flex items-center justify-center">
-                    <svg className="w-32 h-32 md:w-40 md:h-40 transform -rotate-90">
-                      <circle cx="50%" cy="50%" r="45%" className="stroke-slate-100 dark:stroke-slate-800 fill-none" strokeWidth="8" />
-                      <circle cx="50%" cy="50%" r="45%" className={`fill-none transition-all duration-1000 ease-out ${result.status === 'compliant' ? 'stroke-emerald-500' : result.status === 'warning' ? 'stroke-amber-500' : 'stroke-rose-500'}`} strokeWidth="10" strokeDasharray="283" strokeDashoffset={283 - (283 * result.score) / 100} strokeLinecap="round" />
+            <div className="bg-white dark:bg-slate-900 p-1 md:p-1.5 rounded-[3rem] border-2 border-slate-100 dark:border-slate-800 shadow-2xl relative overflow-hidden group">
+              <div className="bg-slate-50/30 dark:bg-slate-900/50 p-8 md:p-12 rounded-[2.8rem] border border-white dark:border-slate-800 grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
+                
+                {/* Score Visualization Column */}
+                <div className="md:col-span-4 flex flex-col items-center justify-center space-y-6 relative">
+                  <div className="relative inline-flex items-center justify-center group/score">
+                    <svg className="w-40 h-40 md:w-48 md:h-48 transform -rotate-90 transition-transform duration-1000 group-hover/score:scale-105">
+                      <circle cx="50%" cy="50%" r="44%" className="stroke-slate-100 dark:stroke-slate-800 fill-none" strokeWidth="12" />
+                      <circle 
+                        cx="50%" cy="50%" r="44%" 
+                        className={`fill-none transition-all duration-1000 ease-out ${result.status === 'compliant' ? 'stroke-emerald-500' : result.status === 'warning' ? 'stroke-amber-500' : 'stroke-rose-500'}`} 
+                        strokeWidth="14" 
+                        strokeDasharray="276" 
+                        strokeDashoffset={276 - (276 * result.score) / 100} 
+                        strokeLinecap="round" 
+                      />
                     </svg>
-                    <div className="absolute flex flex-col items-center justify-center"><span className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white">{result.score}%</span></div>
+                    <div className="absolute flex flex-col items-center justify-center text-center">
+                      <span className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white leading-none">{result.score}%</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Compliance Rate</span>
+                    </div>
+                  </div>
+                  
+                  <div className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.15em] border transition-all duration-500 ${
+                    result.status === 'compliant' 
+                      ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800' 
+                      : result.status === 'warning'
+                      ? 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:border-amber-800'
+                      : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900/20 dark:border-rose-800'
+                  }`}>
+                    {result.status === 'compliant' ? 'مطابق للمعايير' : result.status === 'warning' ? 'تنبيه - مراجعة مطلوبة' : 'غير مطابق - ملاحظات حرجة'}
                   </div>
                 </div>
-                <div className="flex-1 space-y-4 text-right">
-                  <div className="flex items-center gap-3">
-                    <InteractiveIcon icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /></svg>} tooltip="ملخص النتيجة" />
-                    <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">ملخص تنفيذي (Executive Summary)</h3>
+
+                {/* Content Column */}
+                <div className="md:col-span-8 space-y-6 text-right">
+                  <div className="flex flex-col md:flex-row md:items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
+                    <InteractiveIcon 
+                      icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" /></svg>} 
+                      tooltip="نسخ ملخص النتيجة" 
+                      onClick={() => navigator.clipboard.writeText(`ملخص بنيان: ${result.executiveSummary}`)}
+                      className="shrink-0 self-start md:self-center"
+                    />
+                    <div>
+                      <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">ملخص تنفيذي (Executive Summary)</h3>
+                      <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">SBC Evaluation Report v2.5</p>
+                    </div>
                   </div>
-                  <p className="text-slate-600 dark:text-slate-300 text-base md:text-lg font-bold italic leading-loose">"{result.executiveSummary}"</p>
+                  
+                  <div className="relative">
+                    <div className="absolute top-0 right-0 w-1 h-full bg-indigo-500/20 rounded-full"></div>
+                    <p className="text-slate-600 dark:text-slate-300 text-lg md:text-xl font-bold italic leading-relaxed pr-6 py-2">
+                      "{result.executiveSummary}"
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-4 pt-4">
+                    <div className="bg-white dark:bg-slate-800 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-3">
+                       <div className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></div>
+                       <span className="text-[10px] font-black text-slate-500">تم التحقق بواسطة AI Engine</span>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-3">
+                       <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                       <span className="text-[10px] font-black text-slate-500">متوافق مع تحديثات SBC 2024</span>
+                    </div>
+                  </div>
                 </div>
+
               </div>
             </div>
           </div>
@@ -621,7 +676,7 @@ const ComplianceView: React.FC = () => {
               <div className="lg:col-span-8 bg-slate-50 dark:bg-slate-800/40 p-6 md:p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
                 <div className="flex justify-between items-center mb-8">
                   <h4 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-3">
-                    <InteractiveIcon icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>} tooltip="تحليل الاتجاه" />
+                    <InteractiveIcon icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>} tooltip="نسخ بيانات الاتجاه" onClick={() => navigator.clipboard.writeText("درجة الامتثال: " + result.score + "%")} />
                     تطور درجة الامتثال
                   </h4>
                   <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-white dark:bg-slate-900 px-3 py-1 rounded-full shadow-sm">Trend Analysis</span>
@@ -678,7 +733,7 @@ const ComplianceView: React.FC = () => {
               <div className="lg:col-span-4 bg-slate-900 p-8 rounded-[2.5rem] text-white relative overflow-hidden flex flex-col items-center justify-center">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
                 <h4 className="text-sm font-black mb-8 flex items-center gap-3 relative z-10 self-start">
-                  <InteractiveIcon icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /></svg>} activeColor="bg-slate-700" tooltip="توزيع الملاحظات" />
+                  <InteractiveIcon icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /></svg>} activeColor="bg-slate-700" tooltip="نسخ توزيع الملاحظات" onClick={() => navigator.clipboard.writeText("توزيع الملاحظات مطابق.")} />
                   توزيع الملاحظات
                 </h4>
                 <div className="h-[220px] w-full relative z-10">
@@ -737,7 +792,8 @@ const ComplianceView: React.FC = () => {
                     <InteractiveIcon 
                       icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01m-.01 4h.01" /></svg>} 
                       activeColor="bg-slate-700" 
-                      tooltip="التفاصيل الهندسية" 
+                      tooltip="نسخ التفاصيل الفنية" 
+                      onClick={() => navigator.clipboard.writeText(result.details)}
                     />
                     التفاصيل الفنية (Details)
                   </h4>
@@ -746,7 +802,7 @@ const ComplianceView: React.FC = () => {
 
               <div className="space-y-4">
                 <h4 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-3">
-                  <InteractiveIcon icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" /></svg>} tooltip="قائمة الملاحظات" />
+                  <InteractiveIcon icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" /></svg>} tooltip="نسخ قائمة الملاحظات" onClick={() => navigator.clipboard.writeText("نسخ قائمة الملاحظات الهندسية.")} />
                   الملاحظات التفصيلية (Findings)
                 </h4>
                 <div className="grid grid-cols-1 gap-3">
@@ -768,7 +824,8 @@ const ComplianceView: React.FC = () => {
                     <InteractiveIcon 
                       icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>} 
                       activeColor="bg-indigo-500" 
-                      tooltip="توصيات الخبير" 
+                      tooltip="نسخ التوصيات" 
+                      onClick={() => navigator.clipboard.writeText(result.recommendations.join('\n'))}
                     />
                     التوصيات الهندسية (Recommendations)
                   </h4>
@@ -779,7 +836,8 @@ const ComplianceView: React.FC = () => {
                     <InteractiveIcon 
                       icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.247 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>} 
                       activeColor="bg-slate-700" 
-                      tooltip="الأكواد المرجعية" 
+                      tooltip="نسخ المراجع النظامية" 
+                      onClick={() => navigator.clipboard.writeText(result.references.join(', '))}
                     />
                     المراجع النظامية (SBC References)
                   </h4>
@@ -816,10 +874,10 @@ const ComplianceView: React.FC = () => {
             description="إدارة المهام الهندسية المرتبطة بالمشروع"
             isOpen={activeSections.includes('tasks')}
             onToggle={() => toggleSection('tasks')}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>}
+            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>}
             interactiveHeaderIcon={
               <InteractiveIcon 
-                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>} 
+                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>} 
                 activeColor="bg-emerald-600" 
                 tooltip="إدارة المهام" 
               />
@@ -882,7 +940,8 @@ const ComplianceView: React.FC = () => {
           <InteractiveIcon 
             icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} 
             activeColor="bg-indigo-600" 
-            tooltip="مركز الأسئلة" 
+            tooltip="نسخ عنوان الأسئلة الشائعة" 
+            onClick={() => navigator.clipboard.writeText("الأسئلة الشائعة")}
           />
         }
       >
