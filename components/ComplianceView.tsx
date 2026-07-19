@@ -412,7 +412,8 @@ const ComplianceView: React.FC = () => {
     : tasks.filter(t => t.projectId === taskProjectFilter);
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto py-6 px-4">
+    <>
+      <div className="space-y-8 max-w-6xl mx-auto py-6 px-4 print:hidden">
       {showClearConfirm && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 w-full max-w-sm text-center">
@@ -656,6 +657,15 @@ const ComplianceView: React.FC = () => {
                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
                        <span className="text-[10px] font-black text-slate-500">متوافق مع تحديثات SBC 2024</span>
                     </div>
+                    <button 
+                      onClick={() => window.print()}
+                      className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-5 py-2.5 rounded-2xl border border-indigo-500 shadow-lg flex items-center gap-2.5 transition-all text-xs font-black relative overflow-hidden group/btn"
+                    >
+                      <svg className="w-4 h-4 transition-transform group-hover/btn:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                      تصدير تقرير PDF النهائي
+                    </button>
                   </div>
                 </div>
 
@@ -959,7 +969,165 @@ const ComplianceView: React.FC = () => {
           ))}
         </div>
       </CollapsibleSection>
-    </div>
+      </div>
+
+      {/* Official PDF Report View (Only shown during print) */}
+      {result && (
+        <div className="hidden print:block bg-white text-slate-900 p-12 min-h-screen text-right font-['Amiri']" dir="rtl" style={{ fontFamily: "'Amiri', serif" }}>
+          {/* Decorative Top Border */}
+          <div className="border-b-4 border-double border-indigo-900 pb-6 mb-8 flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-black text-indigo-900">بُنيان | منصة الامتثال الهندسي الذكي</h1>
+              <p className="text-xs font-bold text-slate-500 mt-1">المملكة العربية السعودية</p>
+            </div>
+            <div className="text-left text-xs text-slate-500 space-y-1">
+              <p className="font-bold">التاريخ: {new Date().toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              <p className="font-bold">رقم التقرير: <span className="font-mono">BUN-REP-{Math.floor(100000 + Math.random() * 900000)}</span></p>
+            </div>
+          </div>
+
+          {/* Title */}
+          <div className="text-center my-8">
+            <h2 className="text-3xl font-black text-slate-900 leading-tight">تقرير تدقيق ومطابقة الامتثال الإنشائي والمعماري</h2>
+            <p className="text-sm font-bold text-indigo-700 mt-2">وفقاً لمعايير كود البناء السعودي (SBC)</p>
+          </div>
+
+          {/* Project Metadata Table */}
+          <div className="my-8 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-slate-50 p-4 border-b border-slate-200">
+              <h3 className="font-black text-slate-800 text-sm">بيانات المشروع والفحص</h3>
+            </div>
+            <table className="w-full text-right border-collapse text-xs">
+              <tbody>
+                <tr className="border-b border-slate-100">
+                  <td className="p-3 bg-slate-50/50 font-black text-slate-500 w-1/4">اسم المشروع:</td>
+                  <td className="p-3 font-bold text-slate-800">{projectName || "مشروع افتراضي جديد"}</td>
+                  <td className="p-3 bg-slate-50/50 font-black text-slate-500 w-1/4">نوع التدقيق الهندسي:</td>
+                  <td className="p-3 font-bold text-slate-800">
+                    {auditType === AuditType.SAFETY ? "الأمن والسلامة وحماية الحريق (SBC 801)" : "امتثال عام لكود البناء السعودي (SBC General)"}
+                  </td>
+                </tr>
+                <tr className="border-b border-slate-100">
+                  <td className="p-3 bg-slate-50/50 font-black text-slate-500">نظام التحليل والتقييم:</td>
+                  <td className="p-3 font-bold text-slate-800">محرك تدقيق الذكاء الاصطناعي لبنيان v2.5</td>
+                  <td className="p-3 bg-slate-50/50 font-black text-slate-500">مستوى المطابقة والالتزام:</td>
+                  <td className="p-3 font-bold">
+                    <span className={`px-2.5 py-1 rounded text-[11px] font-black ${
+                      result.status === 'compliant' ? 'bg-emerald-100 text-emerald-800' :
+                      result.status === 'warning' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {result.score}% ({result.status === 'compliant' ? 'مطابق' : result.status === 'warning' ? 'مراجعة مطلوبة' : 'غير مطابق'})
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Executive Summary */}
+          <div className="my-8">
+            <h3 className="text-lg font-black text-indigo-900 border-r-4 border-indigo-600 pr-3 mb-3">الملخص التنفيذي للتقرير</h3>
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 leading-relaxed text-sm font-bold text-slate-700">
+              "{result.executiveSummary}"
+            </div>
+          </div>
+
+          {/* Detailed Findings & Violations */}
+          <div className="my-8">
+            <h3 className="text-lg font-black text-indigo-900 border-r-4 border-indigo-600 pr-3 mb-4">الملاحظات والمخالفات المكتشفة (Findings)</h3>
+            <div className="space-y-4">
+              {result.findings && result.findings.length > 0 ? (
+                result.findings.map((finding, idx) => (
+                  <div key={idx} className="border border-slate-200 rounded-xl p-4 bg-white flex items-start gap-4">
+                    <div className={`p-2 rounded-lg text-xs font-black shrink-0 ${
+                      finding.status === 'compliant' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                      finding.status === 'warning' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                      'bg-rose-50 text-rose-700 border border-rose-100'
+                    }`}>
+                      {finding.status === 'compliant' ? 'مطابق' :
+                       finding.status === 'warning' ? 'تنبيه' : 'مخالفة'}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                          {finding.category || 'عام'}
+                        </span>
+                      </div>
+                      <p className="text-xs font-bold text-slate-800 leading-relaxed">{finding.text}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs font-bold text-slate-500 italic">لا توجد ملاحظات تفصيلية مسجلة.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Remediation Recommendations */}
+          <div className="my-8" style={{ pageBreakBefore: 'always' }}>
+            <h3 className="text-lg font-black text-indigo-900 border-r-4 border-indigo-600 pr-3 mb-4">توصيات المعالجة والحلول الهندسية المقترحة</h3>
+            <div className="bg-indigo-50/10 border border-indigo-100/50 p-6 rounded-2xl">
+              <ul className="space-y-3.5">
+                {result.recommendations && result.recommendations.length > 0 ? (
+                  result.recommendations.map((rec, i) => (
+                    <li key={i} className="flex items-start gap-3 text-xs font-bold text-slate-700 leading-relaxed">
+                      <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-[10px] shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="pt-0.5">{rec}</span>
+                    </li>
+                  ))
+                ) : (
+                  <p className="text-xs font-bold text-slate-500 italic">لا توجد توصيات محددة مسجلة.</p>
+                )}
+              </ul>
+            </div>
+          </div>
+
+          {/* Regulatory References */}
+          <div className="my-8">
+            <h3 className="text-lg font-black text-indigo-900 border-r-4 border-indigo-600 pr-3 mb-4">المراجع النظامية وأكواد البناء المستند إليها</h3>
+            <div className="flex flex-wrap gap-2">
+              {result.references && result.references.length > 0 ? (
+                result.references.map((ref, i) => (
+                  <span key={i} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-600">
+                    {ref}
+                  </span>
+                ))
+              ) : (
+                <p className="text-xs font-bold text-slate-500 italic">لا توجد مراجع مسجلة.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Sign-off & Stamp Section */}
+          <div className="mt-16 pt-8 border-t border-slate-200 grid grid-cols-2 gap-8 text-center text-xs">
+            <div className="space-y-8">
+              <p className="font-black text-slate-500">توقيع المهندس المسؤول المعني بالتدقيق</p>
+              <div className="h-16 flex items-center justify-center">
+                <span className="text-slate-300 font-bold italic text-lg">[ التوقيع الإلكتروني معتمد ]</span>
+              </div>
+              <p className="font-bold text-slate-800">مهندس استشاري معتمد</p>
+            </div>
+            <div className="space-y-8 border-r border-slate-100">
+              <p className="font-black text-slate-500">الختم الرسمي لجهة التدقيق الهندسي</p>
+              <div className="h-16 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full border-4 border-indigo-900/30 flex items-center justify-center text-[8px] font-black text-indigo-900/40 rotate-12">
+                  بُنيان للتدقيق
+                </div>
+              </div>
+              <p className="font-bold text-slate-800">منصة بنيان للامتثال والتدقيق الذكي</p>
+            </div>
+          </div>
+
+          {/* Footer Notes */}
+          <div className="mt-12 text-center text-[10px] font-bold text-slate-400 border-t border-slate-100 pt-6">
+            <p>تم إصدار هذا التقرير آلياً عبر منصة بنيان للامتثال والتدقيق الهندسي الذكي.</p>
+            <p className="mt-1">أي كشط أو تعديل يدوي في محتويات هذا التقرير يلغيه تماماً.</p>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

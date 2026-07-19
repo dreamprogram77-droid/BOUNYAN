@@ -146,7 +146,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <div className="fixed bottom-6 left-6 z-[60] flex flex-col items-start gap-3 pointer-events-none">
+      <div className="fixed bottom-6 left-6 z-[60] flex flex-col items-start gap-3 pointer-events-none print:hidden">
         <button 
           onClick={() => setIsDevMode(!isDevMode)}
           className={`pointer-events-auto p-3 rounded-full shadow-2xl transition-all duration-300 ${isDevMode ? 'bg-rose-600 text-white rotate-180' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
@@ -156,7 +156,7 @@ const App: React.FC = () => {
       </div>
 
       {!isDashboard && (
-        <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-16 mt-20 transition-colors">
+        <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-16 mt-20 transition-colors print:hidden">
           <div className="max-w-7xl mx-auto px-6 text-center">
             <p className="text-slate-400 dark:text-slate-500 text-[10px] font-bold tracking-[0.3em] uppercase">© {new Date().getFullYear()} Bunyan Engineering Compliance. KSA.</p>
           </div>
